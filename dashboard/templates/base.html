@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Comunidad de Programadores{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="ambient-bg"></div>
+    <div class="particles">
+        <div class="particle particle-1"></div>
+        <div class="particle particle-2"></div>
+        <div class="particle particle-3"></div>
+        <div class="particle particle-4"></div>
+        <div class="particle particle-5"></div>
+        <div class="particle particle-6"></div>
+        <div class="particle particle-7"></div>
+        <div class="particle particle-8"></div>
+        <div class="particle particle-9"></div>
+        <div class="particle particle-10"></div>
+        <div class="particle particle-11"></div>
+        <div class="particle particle-12"></div>
+    </div>
+
+    <div class="layout">
+        {% if user %}
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo"><i class="bi bi-robot"></i></div>
+                <span class="sidebar-title">ComunidadBot</span>
+                <button class="sidebar-close" onclick="toggleSidebar()"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            {% if guilds %}
+            <div class="server-selector" id="serverSelector" onclick="toggleServerDropdown()">
+                {% set current_guild = None %}
+                {% if guild is defined and guild %}
+                    {% set sg = guild %}
+                {% elif guilds %}
+                    {% set sg = guilds[0] %}
+                {% endif %}
+                {% if sg is defined and sg %}
+                <img class="server-selector-img" src="https://cdn.discordapp.com/icons/{{ sg.id }}/{{ sg.icon }}.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                <span class="server-selector-name">{{ sg.name[:20] }}</span>
+                {% if sg.permission_label is defined %}
+                <span class="{{ sg.badge_class }}" style="font-size:0.6rem;margin-left:auto;">{{ sg.permission_label[:6] }}</span>
+                {% endif %}
+                <i class="bi bi-chevron-down server-selector-arrow" style="margin-left:4px;"></i>
+                <div class="server-dropdown" id="serverDropdown">
+                    {% for g in guilds %}
+                    <div style="display:flex;align-items:center;padding:2px 0;">
+                        <a href="/dashboard/{{ g.id }}" class="server-dropdown-item" style="flex:1;">
+                            <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            <span style="flex:1;">{{ g.name[:20] }}</span>
+                            {% if g.permission_label is defined %}
+                            <span class="{{ g.badge_class }}" style="font-size:0.6rem;">{{ g.permission_label[:6] }}</span>
+                            {% endif %}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <nav class="sidebar-nav">
+                {% if guilds %}
+                <div class="sidebar-section-label">Menu</div>
+                <a href="/dashboard" class="sidebar-link {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                </a>
+                <a href="/dashboard/servers" class="sidebar-link {% if active_page == 'servers' %}active{% endif %}">
+                    <i class="bi bi-server"></i> Servidores
+                </a>
+
+                {% if guild is defined and guild %}
+                <div class="sidebar-section-label">Servidor</div>
+                <a href="/dashboard/{{ guild.id }}" class="sidebar-link {% if active_page == 'config' %}active{% endif %}">
+                    <i class="bi bi-house-gear"></i> Panel de Control
+                </a>
+                {% endif %}
+                {% endif %}
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name">{{ user.username }}</div>
+                        <div class="sidebar-user-status">En linea</div>
+                    </div>
+                    <div class="dropdown-custom">
+                        <button class="btn-icon" onclick="toggleDropdown(this)"><i class="bi bi-three-dots-vertical"></i></button>
+                        <div class="dropdown-menu-custom" style="right: 0; left: auto;">
+                            <a href="/dashboard" class="dropdown-item"><i class="bi bi-house"></i> Dashboard</a>
+                            <a href="/logout" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Cerrar sesion</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+
+        <main class="main-content">
+            {% if user %}
+            <nav class="navbar-custom">
+                <div class="navbar-left">
+                    <button class="navbar-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+                    {% if guild is defined and guild %}
+                    <div class="navbar-breadcrumb">
+                        <a href="/dashboard">Dashboard</a>
+                        <i class="bi bi-chevron-right" style="font-size: 0.7rem;"></i>
+                        <a href="/dashboard/{{ guild.id }}">{{ guild.name[:20] }}</a>
+                        {% if module and module != 'overview' %}
+                        <i class="bi bi-chevron-right" style="font-size: 0.7rem;"></i>
+                        <span class="active">{{ module|replace('-', ' ')|capitalize }}</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="navbar-breadcrumb">
+                        <span class="active">Dashboard</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="navbar-right">
+                    <div class="navbar-search">
+                        <i class="bi bi-search"></i>
+                        <input type="text" placeholder="Buscar..." oninput="handleSearch(this.value)">
+                    </div>
+                    <button class="navbar-btn" title="Notificaciones">
+                        <i class="bi bi-bell"></i>
+                        <span class="dot"></span>
+                    </button>
+                    <button class="navbar-btn" title="Ayuda">
+                        <i class="bi bi-question-lg"></i>
+                    </button>
+                </div>
+            </nav>
+            {% endif %}
+
+            <div style="padding: 24px;">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box" id="modalBox">
+            <div class="modal-header">
+                <h4 id="modalTitle"><i class="bi bi-info-circle"></i> Modal</h4>
+                <button class="modal-close" onclick="closeModal()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
