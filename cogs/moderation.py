@@ -37,7 +37,7 @@ class Moderation(commands.Cog):
         return r
 
     # ── Ban ──────────────────────────────────────────────────────────────────
-    @app_commands.command(name="ban", description="🔨 Banear un usuario del servidor")
+    @app_commands.command(name="ban", description="Banear un usuario del servidor")
     @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user="Usuario a banear", reason="Motivo", delete_days="Días de mensajes a eliminar", duration="Duración (opcional, ej: 1h 7d)")
     @app_commands.checks.has_permissions(ban_members=True)
@@ -55,15 +55,15 @@ class Moderation(commands.Cog):
             case = await self.bot.db.add_case(interaction.guild.id, user.id, interaction.user.id, "ban", reason, duration or "")
             embed = mod_embed("🔨 Ban", user, interaction.user, reason, config.ERROR_COLOR)
             if duration:
-                embed.add_field(name="⏱️ Duración", value=format_duration(secs))
-            embed.add_field(name="📋 Case", value=f"#{case}")
+                embed.add_field(name="Duración", value=format_duration(secs))
+            embed.add_field(name="Case", value=f"#{case}f")
             await send_ephemeral(interaction, embed=embed)
             await send_log(self.bot, interaction.guild.id, "moderation", embed)
         except discord.Forbidden:
             await send_ephemeral(interaction, embed=error_embed("🚫 Error", "No puedo banear a ese usuario."))
 
     # ── Unban ────────────────────────────────────────────────────────────────
-    @app_commands.command(name="unban", description="🔓 Desbanear un usuario")
+    @app_commands.command(name="unban", description="Desbanear un usuario")
     @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user_id="ID del usuario", reason="Motivo")
     @app_commands.checks.has_permissions(ban_members=True)
@@ -81,7 +81,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌ Error", str(e)))
 
     # ── Softban ──────────────────────────────────────────────────────────────
-    @app_commands.command(name="softban", description="👢 Banear y desbanear para limpiar mensajes")
+    @app_commands.command(name="softban", description="Banear y desbanear para limpiar mensajes")
     @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user="Usuario", reason="Motivo", delete_days="Días de mensajes")
     @app_commands.checks.has_permissions(ban_members=True)
@@ -97,7 +97,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("🚫 Error", "No puedo softbanear a ese usuario."))
 
     # ── Kick ─────────────────────────────────────────────────────────────────
-    @app_commands.command(name="kick", description="👢 Expulsar un usuario")
+    @app_commands.command(name="kick", description="Expulsar un usuario")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(user="Usuario", reason="Motivo")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -107,14 +107,14 @@ class Moderation(commands.Cog):
             await user.kick(reason=reason)
             case = await self.bot.db.add_case(interaction.guild.id, user.id, interaction.user.id, "kick", reason)
             embed = mod_embed("👢 Kick", user, interaction.user, reason, config.WARNING_COLOR)
-            embed.add_field(name="📋 Case", value=f"#{case}")
+            embed.add_field(name="Case", value=f"#{case}f")
             await send_ephemeral(interaction, embed=embed)
             await send_log(self.bot, interaction.guild.id, "moderation", embed)
         except discord.Forbidden:
             await send_ephemeral(interaction, embed=error_embed("🚫 Error", "No puedo expulsar a ese usuario."))
 
     # ── Timeout ──────────────────────────────────────────────────────────────
-    @app_commands.command(name="timeout", description="⏰ Timeout a un usuario")
+    @app_commands.command(name="timeout", description="Timeout a un usuario")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(user="Usuario", duration="Duración (ej: 10m, 1h, 7d)", reason="Motivo")
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -128,16 +128,16 @@ class Moderation(commands.Cog):
             await user.timeout(until, reason=reason)
             case = await self.bot.db.add_case(interaction.guild.id, user.id, interaction.user.id, "timeout", reason, duration)
             embed = mod_embed("⏰ Timeout", user, interaction.user, reason, config.WARNING_COLOR)
-            embed.add_field(name="⏱️ Duración", value=format_duration(secs))
-            embed.add_field(name="⌛ Termina", value=f"<t:{int(time.time()+secs)}:R>")
-            embed.add_field(name="📋 Case", value=f"#{case}")
+            embed.add_field(name="Duración", value=format_duration(secs))
+            embed.add_field(name="Termina", value=f"<t:{int(time.time()+secs)}:R>f")
+            embed.add_field(name="Case", value=f"#{case}f")
             await send_ephemeral(interaction, embed=embed)
             await send_log(self.bot, interaction.guild.id, "moderation", embed)
         except discord.Forbidden:
             await send_ephemeral(interaction, embed=error_embed("🚫 Error", "No puedo aplicar timeout."))
 
     # ── Untimeout ────────────────────────────────────────────────────────────
-    @app_commands.command(name="untimeout", description="🔓 Quitar timeout a un usuario")
+    @app_commands.command(name="untimeout", description="Quitar timeout a un usuario")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(user="Usuario", reason="Motivo")
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -152,7 +152,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌ Error", "No pude quitar el timeout."))
 
     # ── Mute ─────────────────────────────────────────────────────────────────
-    @app_commands.command(name="mute", description="🔇 Silenciar un usuario")
+    @app_commands.command(name="mute", description="Silenciar un usuario")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(user="Usuario", duration="Duración (ej: 10m, 1h, 7d)", reason="Motivo")
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -170,9 +170,9 @@ class Moderation(commands.Cog):
             await self.bot.db.add_muted(user.id, interaction.guild.id, end)
             case = await self.bot.db.add_case(interaction.guild.id, user.id, interaction.user.id, "mute", reason, duration)
             embed = mod_embed("🔇 Mute", user, interaction.user, reason, config.WARNING_COLOR)
-            embed.add_field(name="⏱️ Duración", value=format_duration(secs))
-            embed.add_field(name="⌛ Termina", value=f"<t:{int(end)}:R>")
-            embed.add_field(name="📋 Case", value=f"#{case}")
+            embed.add_field(name="Duración", value=format_duration(secs))
+            embed.add_field(name="Termina", value=f"<t:{int(end)}:R>f")
+            embed.add_field(name="Case", value=f"#{case}f")
             await send_ephemeral(interaction, embed=embed)
             await send_log(self.bot, interaction.guild.id, "moderation", embed)
             asyncio.create_task(self._auto_unmute(user.id, interaction.guild.id, secs, role))
@@ -193,7 +193,7 @@ class Moderation(commands.Cog):
                 pass
 
     # ── Unmute ───────────────────────────────────────────────────────────────
-    @app_commands.command(name="unmute", description="🔊 Desilenciar un usuario")
+    @app_commands.command(name="unmute", description="Desilenciar un usuario")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(user="Usuario", reason="Motivo")
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -212,7 +212,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌ Error", "No pude unmutear."))
 
     # ── Warn ─────────────────────────────────────────────────────────────────
-    @app_commands.command(name="warn", description="⚠️ Advertir a un usuario")
+    @app_commands.command(name="warn", description="Advertir a un usuario")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(user="Usuario", reason="Motivo")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -223,8 +223,8 @@ class Moderation(commands.Cog):
         wcount = mid.get("warns", 1)
         case = await self.bot.db.add_case(interaction.guild.id, user.id, interaction.user.id, "warn", reason)
         embed = mod_embed("⚠️ Warn", user, interaction.user, reason, config.WARNING_COLOR)
-        embed.add_field(name="📊 Total warns", value=str(wcount))
-        embed.add_field(name="📋 Case", value=f"#{case}")
+        embed.add_field(name="Total warns", value=str(wcount))
+        embed.add_field(name="Case", value=f"#{case}f")
         await send_ephemeral(interaction, embed=embed)
         await send_log(self.bot, interaction.guild.id, "moderation", embed)
 
@@ -241,7 +241,7 @@ class Moderation(commands.Cog):
                 pass
 
     # ── Warnings ─────────────────────────────────────────────────────────────
-    @app_commands.command(name="warnings", description="📋 Ver warns de un usuario")
+    @app_commands.command(name="warnings", description="Ver warns de un usuario")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -252,19 +252,19 @@ class Moderation(commands.Cog):
             return await send_ephemeral(interaction, embed=info_embed("📋 Warns", f"{user.mention} no tiene warns."))
         embed = PremiumEmbed(title=f"📋 Warns de {user.display_name}", color=config.WARNING_COLOR)
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="📊 Total activos", value=str(len(rows)), inline=False)
+        embed.add_field(name="Total activos", value=str(len(rows)), inline=False)
         for r in rows[:10]:
             mod = interaction.guild.get_member(r["moderator_id"])
             mn = mod.mention if mod else f"`{r['moderator_id']}`"
             embed.add_field(
-                name=f"#{r['id']} · <t:{int(r['timestamp'])}:R>",
-                value=f"**Mod:** {mn}\n**Razón:** {r['reason']}",
+                name=f"#{r['id']} · <t:{int(r['timestamp'])}:R>f",
+                value=f"**Mod:** {mn}\n**Razón:** {r['reason']}f",
                 inline=False,
             )
         await send_ephemeral(interaction, embed=embed)
 
     # ── Clearwarnings / Delwarn ─────────────────────────────────────────────
-    @app_commands.command(name="clearwarnings", description="🧹 Limpiar todos los warns de un usuario")
+    @app_commands.command(name="clearwarnings", description="Limpiar todos los warns de un usuario")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(administrator=True)
@@ -273,7 +273,7 @@ class Moderation(commands.Cog):
         await self.bot.db.clear_warnings(user.id, interaction.guild.id)
         await send_ephemeral(interaction, embed=success_embed("🧹 Warns limpiados", f"Warns de {user.mention} eliminados."))
 
-    @app_commands.command(name="delwarn", description="🗑️ Eliminar un warn específico por ID")
+    @app_commands.command(name="delwarn", description="Eliminar un warn específico por ID")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(warn_id="ID del warn")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -286,7 +286,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌ Error", "Warn no encontrado."))
 
     # ── Case(s) ─────────────────────────────────────────────────────────────
-    @app_commands.command(name="case", description="📋 Ver detalle de un case")
+    @app_commands.command(name="case", description="Ver detalle de un case")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(case_number="Número de case")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -302,12 +302,12 @@ class Moderation(commands.Cog):
         mod = interaction.guild.get_member(row["moderator_id"]) or f"`{row['moderator_id']}`"
         embed = PremiumEmbed(
             title=f"📋 Case #{row['case_number']}",
-            description=f"**Acción:** {row['action_type']}\n**Usuario:** {user.mention if isinstance(user, discord.User) else user} (`{row['user_id']}`)\n**Mod:** {mod.mention if isinstance(mod, discord.Member) else mod}\n**Razón:** {row['reason']}\n**Duración:** {row['duration'] or 'N/A'}\n**Fecha:** <t:{int(row['timestamp'])}:F>",
+            description=f"**Acción:** {row['action_type']}\n**Usuario:** {user.mention if isinstance(user, discord.User) else user} (`{row['user_id']}`)\n**Mod:** {mod.mention if isinstance(mod, discord.Member) else mod}\n**Razón:** {row['reason']}\n**Duración:** {row['duration'] or 'N/A'}\n**Fecha:** <t:{int(row['timestamp'])}:F>f",
             color=config.EMBED_COLOR,
         )
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="modlogs", description="📋 Ver todos los cases de un usuario")
+    @app_commands.command(name="modlogs", description="Ver todos los cases de un usuario")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(kick_members=True)
@@ -323,14 +323,14 @@ class Moderation(commands.Cog):
         embed.set_thumbnail(url=user.display_avatar.url)
         for r in rows[:10]:
             embed.add_field(
-                name=f"#{r['case_number']} · {r['action_type']} · <t:{int(r['timestamp'])}:R>",
-                value=f"**Razón:** {r['reason'][:100]}",
+                name=f"#{r['case_number']} · {r['action_type']} · <t:{int(r['timestamp'])}:R>f",
+                value=f"**Razón:** {r['reason'][:100]}f",
                 inline=False,
             )
         await send_ephemeral(interaction, embed=embed)
 
     # ── Purge ────────────────────────────────────────────────────────────────
-    @app_commands.command(name="purge", description="🗑️ Eliminar mensajes del canal")
+    @app_commands.command(name="purge", description="Eliminar mensajes del canal")
     @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(cantidad="Cantidad (1-1000)", usuario="Filtrar por usuario (opcional)")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -350,7 +350,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌", "Error al purgar."))
 
     # ── Slowmode ─────────────────────────────────────────────────────────────
-    @app_commands.command(name="slowmode", description="🐢 Establecer slowmode")
+    @app_commands.command(name="slowmode", description="Establecer slowmode")
     @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(seconds="Segundos (0 para desactivar)")
     @app_commands.checks.has_permissions(manage_channels=True)
@@ -364,7 +364,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude cambiar el slowmode."))
 
     # ── Lock / Unlock ────────────────────────────────────────────────────────
-    @app_commands.command(name="lock", description="🔒 Bloquear canal")
+    @app_commands.command(name="lock", description="Bloquear canal")
     @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(canal="Canal (opcional)")
     @app_commands.checks.has_permissions(manage_channels=True)
@@ -377,7 +377,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude bloquear."))
 
-    @app_commands.command(name="unlock", description="🔓 Desbloquear canal")
+    @app_commands.command(name="unlock", description="Desbloquear canal")
     @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(canal="Canal (opcional)")
     @app_commands.checks.has_permissions(manage_channels=True)
@@ -390,7 +390,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude desbloquear."))
 
-    @app_commands.command(name="lockdown", description="🔒 Bloquear TODO el servidor")
+    @app_commands.command(name="lockdown", description="Bloquear TODO el servidor")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def lockdown(self, interaction: discord.Interaction):
@@ -404,7 +404,7 @@ class Moderation(commands.Cog):
                 pass
         await send_ephemeral(interaction, embed=success_embed("🔒 Lockdown", f"{count} canales bloqueados."))
 
-    @app_commands.command(name="unlockdown", description="🔓 Desbloquear TODO el servidor")
+    @app_commands.command(name="unlockdown", description="Desbloquear TODO el servidor")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def unlockdown(self, interaction: discord.Interaction):
@@ -419,7 +419,7 @@ class Moderation(commands.Cog):
         await send_ephemeral(interaction, embed=success_embed("🔓 Unlockdown", f"{count} canales desbloqueados."))
 
     # ── Nick ─────────────────────────────────────────────────────────────────
-    @app_commands.command(name="nick", description="✏️ Cambiar apodo a un usuario")
+    @app_commands.command(name="nick", description="Cambiar apodo a un usuario")
     @app_commands.default_permissions(manage_nicknames=True)
     @app_commands.describe(user="Usuario", nickname="Nuevo apodo (dejar vacío para reset)")
     @app_commands.checks.has_permissions(manage_nicknames=True)
@@ -432,7 +432,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude cambiar el apodo."))
 
-    @app_commands.command(name="resetnick", description="🔄 Resetear apodo de un usuario")
+    @app_commands.command(name="resetnick", description="Resetear apodo de un usuario")
     @app_commands.default_permissions(manage_nicknames=True)
     @app_commands.describe(user="Usuario")
     async def resetnick(self, interaction: discord.Interaction, user: discord.Member):
@@ -444,7 +444,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude resetear."))
 
     # ── Role management ──────────────────────────────────────────────────────
-    @app_commands.command(name="roleadd", description="➕ Añadir rol a un usuario")
+    @app_commands.command(name="roleadd", description="Añadir rol a un usuario")
     @app_commands.default_permissions(manage_roles=True)
     @app_commands.describe(user="Usuario", role="Rol")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -458,7 +458,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude añadir el rol."))
 
-    @app_commands.command(name="roleremove", description="➖ Quitar rol a un usuario")
+    @app_commands.command(name="roleremove", description="Quitar rol a un usuario")
     @app_commands.default_permissions(manage_roles=True)
     @app_commands.describe(user="Usuario", role="Rol")
     @app_commands.checks.has_permissions(manage_roles=True)
@@ -473,58 +473,58 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌", "No pude quitar el rol."))
 
     # ── Clean subcommands ────────────────────────────────────────────────────
-    clean = app_commands.Group(name="clean", description="🗑️ Limpiar mensajes por tipo")
+    clean = app_commands.Group(name="clean", description="Limpiar mensajes por tipo")
 
-    @clean.command(name="all", description="🗑️ Limpiar mensajes")
+    @clean.command(name="all", description="Limpiar mensajes")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_all(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad)
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} mensajes eliminados."))
 
-    @clean.command(name="bots", description="🗑️ Limpiar mensajes de bots")
+    @clean.command(name="bots", description="Limpiar mensajes de bots")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_bots(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: m.author.bot)
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} mensajes de bots eliminados."))
 
-    @clean.command(name="user", description="🗑️ Limpiar mensajes de un usuario")
+    @clean.command(name="user", description="Limpiar mensajes de un usuario")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_user(self, interaction: discord.Interaction, user: discord.User, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: m.author.id == user.id)
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} mensajes de {user} eliminados."))
 
-    @clean.command(name="links", description="🗑️ Limpiar mensajes con enlaces")
+    @clean.command(name="links", description="Limpiar mensajes con enlaces")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_links(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: "http" in m.content.lower())
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} mensajes con links eliminados."))
 
-    @clean.command(name="invites", description="🗑️ Limpiar mensajes con invitaciones")
+    @clean.command(name="invites", description="Limpiar mensajes con invitaciones")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_invites(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: "discord.gg/" in m.content.lower() or "discord.com/invite" in m.content.lower())
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} invites eliminados."))
 
-    @clean.command(name="embeds", description="🗑️ Limpiar mensajes con embeds")
+    @clean.command(name="embeds", description="Limpiar mensajes con embeds")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_embeds(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: m.embeds)
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} embeds eliminados."))
 
-    @clean.command(name="files", description="🗑️ Limpiar mensajes con archivos")
+    @clean.command(name="files", description="Limpiar mensajes con archivos")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_files(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
         d = await interaction.channel.purge(limit=cantidad, check=lambda m: m.attachments)
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} archivos eliminados."))
 
-    @clean.command(name="mentions", description="🗑️ Limpiar mensajes con menciones")
+    @clean.command(name="mentions", description="Limpiar mensajes con menciones")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def clean_mentions(self, interaction: discord.Interaction, cantidad: int = 20):
         await interaction.response.defer(ephemeral=True)
@@ -532,7 +532,7 @@ class Moderation(commands.Cog):
         await send_ephemeral(interaction, embed=success_embed("🗑️", f"{len(d)} menciones eliminadas."))
 
     # ── Purge All (cross-channel nuke) ────────────────────────────────────────
-    @app_commands.command(name="purgeall", description="🗑️ Eliminar TODOS los mensajes de un usuario/rol en todos los canales")
+    @app_commands.command(name="purgeall", description="Eliminar TODOS los mensajes de un usuario/rol en todos los canales")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(
@@ -575,7 +575,7 @@ class Moderation(commands.Cog):
 
         # ── Confirmation ──────────────────────────────────────────────────
         confirm_embed = PremiumEmbed(
-            title="⚠️ Purga Masiva — Confirmación",
+            title="Purga Masiva — Confirmación",
             description=(
                 f"**Objetivo:** {target_name}\n"
                 f"**Canales:** `{len(channels)}` canales de texto\n"
@@ -620,7 +620,7 @@ class Moderation(commands.Cog):
 
         # ── Execute purge ────────────────────────────────────────────────
         progress = PremiumEmbed(
-            title="🗑️ Purga masiva en progreso",
+            title="Purga masiva en progreso",
             description="Iniciando...",
             color=config.EMBED_COLOR,
         )
@@ -669,7 +669,7 @@ class Moderation(commands.Cog):
 
         elapsed = time.time() - start_time
         summary = PremiumEmbed(
-            title="🗑️ Purga completada",
+            title="Purga completada",
             description=(
                 f"**Objetivo:** {target_name}\n"
                 f"**Canales procesados:** `{len(channels)}`\n"
@@ -682,7 +682,7 @@ class Moderation(commands.Cog):
         await send_ephemeral(interaction, embed=summary)
 
     # ── Voice Moderation ─────────────────────────────────────────────────────
-    @app_commands.command(name="voicekick", description="👢 Expulsar a un usuario de un canal de voz")
+    @app_commands.command(name="voicekick", description="Expulsar a un usuario de un canal de voz")
     @app_commands.default_permissions(move_members=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(move_members=True)
@@ -697,7 +697,7 @@ class Moderation(commands.Cog):
         else:
             await send_ephemeral(interaction, embed=warning_embed("⚠️", "No está en un canal de voz."))
 
-    @app_commands.command(name="deafen", description="🔇 Ensordecer a un usuario en voz")
+    @app_commands.command(name="deafen", description="Ensordecer a un usuario en voz")
     @app_commands.default_permissions(mute_members=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(mute_members=True)
@@ -709,7 +709,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "Error."))
 
-    @app_commands.command(name="undeafen", description="🔊 Quitar ensordecimiento")
+    @app_commands.command(name="undeafen", description="Quitar ensordecimiento")
     @app_commands.default_permissions(mute_members=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(mute_members=True)
@@ -721,7 +721,7 @@ class Moderation(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("❌", "Error."))
 
-    @app_commands.command(name="move", description="🚚 Mover un usuario a otro canal de voz")
+    @app_commands.command(name="move", description="Mover un usuario a otro canal de voz")
     @app_commands.default_permissions(move_members=True)
     @app_commands.describe(user="Usuario", canal="Canal destino")
     @app_commands.checks.has_permissions(move_members=True)
@@ -734,7 +734,7 @@ class Moderation(commands.Cog):
             await send_ephemeral(interaction, embed=error_embed("❌", "Error al mover."))
 
     # ── Reason ───────────────────────────────────────────────────────────────
-    @app_commands.command(name="reason", description="✏️ Cambiar la razón de un case")
+    @app_commands.command(name="reason", description="Cambiar la razón de un case")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(case_number="Número de case", reason="Nueva razón")
     @app_commands.checks.has_permissions(kick_members=True)

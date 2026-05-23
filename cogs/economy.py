@@ -26,7 +26,7 @@ class Economy(commands.Cog):
             kwargs["bank"] = bank
         await self.bot.db.update_member(uid, gid, **kwargs)
 
-    @app_commands.command(name="balance", description="💰 Ver tu saldo")
+    @app_commands.command(name="balance", description="Ver tu saldo")
     @app_commands.describe(user="Usuario (opcional)")
     async def balance(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
@@ -34,12 +34,12 @@ class Economy(commands.Cog):
         bal, bank = await self._get_bal(user.id, interaction.guild.id)
         embed = PremiumEmbed(title=f"💰 Saldo de {user.display_name}", color=config.COLORS["green"])
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="💵 Efectivo", value=f"```{bal:,} 🪙```", inline=True)
-        embed.add_field(name="🏦 Banco", value=f"```{bank:,} 🪙```", inline=True)
-        embed.add_field(name="💳 Total", value=f"```{bal + bank:,} 🪙```", inline=True)
+        embed.add_field(name="Efectivo", value=f"```{bal:,} ```f", inline=True)
+        embed.add_field(name="Banco", value=f"```{bank:,} ```f", inline=True)
+        embed.add_field(name="Total", value=f"```{bal + bank:,} ```f", inline=True)
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="daily", description="🎁 Recompensa diaria")
+    @app_commands.command(name="daily", description="Recompensa diaria")
     async def daily(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         md = await self.bot.db.get_member(interaction.user.id, interaction.guild.id)
@@ -51,7 +51,7 @@ class Economy(commands.Cog):
         await self.bot.db.update_member(interaction.user.id, interaction.guild.id, balance=bal, last_daily_time=now)
         await send_ephemeral(interaction, embed=success_embed("🎁 Daily", f"+{config.DAILY_REWARD} 🪙 · Total: {bal:,} 🪙"))
 
-    @app_commands.command(name="weekly", description="🎁 Recompensa semanal")
+    @app_commands.command(name="weekly", description="Recompensa semanal")
     async def weekly(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         md = await self.bot.db.get_member(interaction.user.id, interaction.guild.id)
@@ -62,7 +62,7 @@ class Economy(commands.Cog):
         await self.bot.db.update_member(interaction.user.id, interaction.guild.id, balance=bal, last_weekly_time=now)
         await send_ephemeral(interaction, embed=success_embed("🎁 Weekly", f"+{config.WEEKLY_REWARD} 🪙 · Total: {bal:,} 🪙"))
 
-    @app_commands.command(name="work", description="💼 Trabajar para ganar monedas")
+    @app_commands.command(name="work", description="Trabajar para ganar monedas")
     async def work(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         md = await self.bot.db.get_member(interaction.user.id, interaction.guild.id)
@@ -74,7 +74,7 @@ class Economy(commands.Cog):
         await self.bot.db.update_member(interaction.user.id, interaction.guild.id, balance=bal, last_work_time=now, total_earned=md.get("total_earned", 0) + earned)
         await send_ephemeral(interaction, embed=success_embed("💼 Trabajo", f"Has ganado {earned} 🪙\nSaldo: {bal:,} 🪙"))
 
-    @app_commands.command(name="crime", description="🔫 Cometer un crimen (arriesgado)")
+    @app_commands.command(name="crime", description="Cometer un crimen (arriesgado)")
     async def crime(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         md = await self.bot.db.get_member(interaction.user.id, interaction.guild.id)
@@ -92,7 +92,7 @@ class Economy(commands.Cog):
             await self.bot.db.update_member(interaction.user.id, interaction.guild.id, balance=bal, last_crime_time=now, total_earned=md.get("total_earned", 0) + earned)
             await send_ephemeral(interaction, embed=success_embed("💰 Crimen exitoso", f"Ganaste {earned} 🪙\nSaldo: {bal:,} 🪙"))
 
-    @app_commands.command(name="pay", description="💸 Transferir monedas a un usuario")
+    @app_commands.command(name="pay", description="Transferir monedas a un usuario")
     @app_commands.describe(user="Usuario", cantidad="Cantidad")
     async def pay(self, interaction: discord.Interaction, user: discord.Member, cantidad: int):
         await interaction.response.defer(ephemeral=True)
@@ -108,7 +108,7 @@ class Economy(commands.Cog):
         await self._set_bal(user.id, interaction.guild.id, r_bal + cantidad)
         await send_ephemeral(interaction, embed=success_embed("💸 Pago", f"Pagaste {cantidad:,} 🪙 a {user.mention}"))
 
-    @app_commands.command(name="rob", description="🔫 Robar a un usuario")
+    @app_commands.command(name="rob", description="Robar a un usuario")
     @app_commands.describe(user="Usuario")
     async def rob(self, interaction: discord.Interaction, user: discord.Member):
         await interaction.response.defer(ephemeral=True)
@@ -129,7 +129,7 @@ class Economy(commands.Cog):
             await self._set_bal(user.id, interaction.guild.id, bal - stolen)
             await send_ephemeral(interaction, embed=success_embed("🔫 Robo", f"Robaste {stolen} 🪙 a {user.mention}"))
 
-    @app_commands.command(name="deposit", description="🏦 Depositar dinero al banco")
+    @app_commands.command(name="deposit", description="Depositar dinero al banco")
     @app_commands.describe(cantidad="Cantidad (o 'all')")
     async def deposit(self, interaction: discord.Interaction, cantidad: str):
         await interaction.response.defer(ephemeral=True)
@@ -146,7 +146,7 @@ class Economy(commands.Cog):
         await self._set_bal(interaction.user.id, interaction.guild.id, bal - amount, bank + amount)
         await send_ephemeral(interaction, embed=success_embed("🏦 Depositado", f"{amount} 🪙 → Banco ({bank+amount:,} 🪙)"))
 
-    @app_commands.command(name="withdraw", description="🏦 Retirar dinero del banco")
+    @app_commands.command(name="withdraw", description="Retirar dinero del banco")
     @app_commands.describe(cantidad="Cantidad (o 'all')")
     async def withdraw(self, interaction: discord.Interaction, cantidad: str):
         await interaction.response.defer(ephemeral=True)
@@ -163,7 +163,7 @@ class Economy(commands.Cog):
         await self._set_bal(interaction.user.id, interaction.guild.id, bal + amount, bank - amount)
         await send_ephemeral(interaction, embed=success_embed("🏦 Retirado", f"{amount} 🪙 → Efectivo ({bal+amount:,} 🪙)"))
 
-    @app_commands.command(name="slots", description="🎰 Jugar a las tragamonedas")
+    @app_commands.command(name="slots", description="Jugar a las tragamonedas")
     @app_commands.describe(apuesta="Cantidad a apostar")
     async def slots(self, interaction: discord.Interaction, apuesta: int):
         await interaction.response.defer(ephemeral=True)
@@ -179,16 +179,16 @@ class Economy(commands.Cog):
         won = int(apuesta * multiplier)
         new_bal = bal - apuesta + won
         await self._set_bal(interaction.user.id, interaction.guild.id, new_bal)
-        embed = PremiumEmbed(title="🎰 Slots", color=config.COLORS["gold"])
-        embed.add_field(name="Resultado", value=f"`{r1}` `{r2}` `{r3}`", inline=False)
+        embed = PremiumEmbed(title="Slots", color=config.COLORS["gold"])
+        embed.add_field(name="Resultado", value=f"`{r1}` `{r2}` `{r3}`f", inline=False)
         if won > 0:
-            embed.add_field(name="🎉 Ganaste", value=f"+{won} 🪙 (x{multiplier})", inline=False)
+            embed.add_field(name="Ganaste", value=f"+{won} (x{multiplier})f", inline=False)
         else:
-            embed.add_field(name="😢 Perdiste", value=f"-{apuesta} 🪙", inline=False)
-        embed.add_field(name="💰 Saldo", value=f"{new_bal:,} 🪙", inline=False)
+            embed.add_field(name="Perdiste", value=f"-{apuesta}f", inline=False)
+        embed.add_field(name="Saldo", value=f"{new_bal:,}f", inline=False)
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="roulette", description="🎡 Ruleta simple")
+    @app_commands.command(name="roulette", description="Ruleta simple")
     @app_commands.describe(apuesta="Cantidad", tipo="red, black, odd, even, o número 1-10")
     async def roulette(self, interaction: discord.Interaction, apuesta: int, tipo: str):
         await interaction.response.defer(ephemeral=True)
@@ -215,15 +215,15 @@ class Economy(commands.Cog):
         amount = apuesta * multiplier if won else -apuesta
         new_bal = bal + amount
         await self._set_bal(interaction.user.id, interaction.guild.id, new_bal)
-        embed = PremiumEmbed(title="🎡 Ruleta", color=config.COLORS["gold"])
-        embed.add_field(name="🎯 Número", value=str(number), inline=True)
-        embed.add_field(name="🎨 Color", value=color.capitalize(), inline=True)
-        embed.add_field(name="📊 Resultado", value=f"{'🎉 Ganaste' if won else '😢 Perdiste'} {amount:+} 🪙", inline=False)
-        embed.add_field(name="💰 Saldo", value=f"{new_bal:,} 🪙")
+        embed = PremiumEmbed(title="Ruleta", color=config.COLORS["gold"])
+        embed.add_field(name="Número", value=str(number), inline=True)
+        embed.add_field(name="Color", value=color.capitalize(), inline=True)
+        embed.add_field(name="Resultado", value=f"{' Ganaste' if won else ' Perdiste'} {amount:+}f", inline=False)
+        embed.add_field(name="Saldo", value=f"{new_bal:,}f")
         await send_ephemeral(interaction, embed=embed)
 
     # ── Shop ─────────────────────────────────────────────────────────────────
-    @app_commands.command(name="shop", description="🛒 Ver tienda del servidor")
+    @app_commands.command(name="shop", description="Ver tienda del servidor")
     async def shop(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         items = await self.bot.db.get_shop_items(interaction.guild.id)
@@ -232,13 +232,13 @@ class Economy(commands.Cog):
         embed = PremiumEmbed(title=f"🛒 Tienda · {interaction.guild.name}", color=config.COLORS["gold"])
         for item in items:
             embed.add_field(
-                name=f"{item['emoji']} {item['name']}",
-                value=f"{item['description']}\n💰 {item['price']:,} 🪙 · `ID: {item['id']}`",
+                name=f"{item['emoji']} {item['name']}f",
+                value=f"{item['description']}\n {item['price']:,} · `ID: {item['id']}`f",
                 inline=False,
             )
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="buy", description="🛍️ Comprar un artículo")
+    @app_commands.command(name="buy", description="Comprar un artículo")
     @app_commands.describe(item_id="ID del artículo")
     async def buy(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=True)
@@ -262,7 +262,7 @@ class Economy(commands.Cog):
         await self.bot.db.update_member(interaction.user.id, interaction.guild.id, total_spent=(await self.bot.db.get_member(interaction.user.id, interaction.guild.id)).get("total_spent", 0) + item["price"])
         await send_ephemeral(interaction, embed=success_embed("🛍️ Comprado", f"{item['emoji']} {item['name']} por {item['price']:,} 🪙"))
 
-    @app_commands.command(name="sell", description="💰 Vender un artículo de tu inventario")
+    @app_commands.command(name="sell", description="Vender un artículo de tu inventario")
     @app_commands.describe(item_id="ID del artículo")
     async def sell(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=True)
@@ -273,7 +273,7 @@ class Economy(commands.Cog):
         await self._set_bal(interaction.user.id, interaction.guild.id, bal + refund)
         await send_ephemeral(interaction, embed=success_embed("💰 Vendido", f"Recibiste {refund} 🪙 (50% del precio original)."))
 
-    @app_commands.command(name="inventory", description="🎒 Ver tu inventario")
+    @app_commands.command(name="inventory", description="Ver tu inventario")
     @app_commands.describe(user="Usuario (opcional)")
     async def inventory(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
@@ -285,16 +285,16 @@ class Economy(commands.Cog):
         for item in items:
             role = interaction.guild.get_role(item["role_id"])
             embed.add_field(
-                name=f"{item['emoji']} {item['name']}",
-                value=f"💵 Precio: {item['price']:,} 🪙\n{role.mention if role else ''}\n🕐 <t:{int(item['purchased_at'])}:R>",
+                name=f"{item['emoji']} {item['name']}f",
+                value=f"Precio: {item['price']:,} \n{role.mention if role else ''}\n <t:{int(item['purchased_at'])}:R>f",
                 inline=False,
             )
         await send_ephemeral(interaction, embed=embed)
 
     # ── Economy Admin ────────────────────────────────────────────────────────
-    economy = app_commands.Group(name="economy", description="💰 Admin economía")
+    economy = app_commands.Group(name="economy", description="Admin economía")
 
-    @economy.command(name="leaderboard", description="🏆 Ranking de economía")
+    @economy.command(name="leaderboard", description="Ranking de economía")
     async def eco_lb(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         rows = await self.bot.db.get_leaderboard(interaction.guild.id, "balance", 50)
@@ -317,16 +317,16 @@ class Economy(commands.Cog):
                 rank = start_rank + i
                 prefix = medals[i] if i < 3 else f"`#{rank}`"
                 embed.add_field(
-                    name=f"{prefix} {name}",
-                    value=f"💰 `{r['balance']:,}` 🪙 • 🏦 `{r['bank']:,}`",
+                    name=f"{prefix} {name}f",
+                    value=f"`{r['balance']:,}` • `{r['bank']:,}`f",
                     inline=False,
                 )
             total = await self.bot.db.fetchall(
                 "SELECT COUNT(*) as c FROM members WHERE guild_id = ?", interaction.guild.id
             )
             embed.add_field(
-                name="📊 Totales",
-                value=f"👥 `{total[0]['c'] if total else 0}` miembros en el ranking",
+                name="Totales",
+                value=f"`{total[0]['c'] if total else 0}` miembros en el rankingf",
                 inline=False,
             )
             pages.append(embed)
@@ -335,7 +335,7 @@ class Economy(commands.Cog):
         pag = ReactionPaginator(interaction, pages, timeout=60)
         await pag.start()
 
-    @economy.command(name="add", description="➕ Añadir monedas (admin)")
+    @economy.command(name="add", description="Añadir monedas (admin)")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Cantidad")
     @app_commands.checks.has_permissions(administrator=True)
@@ -345,7 +345,7 @@ class Economy(commands.Cog):
         await self._set_bal(user.id, interaction.guild.id, bal + cantidad)
         await send_ephemeral(interaction, embed=success_embed("➕ Monedas", f"{user.mention}: +{cantidad} 🪙"))
 
-    @economy.command(name="remove", description="➖ Quitar monedas (admin)")
+    @economy.command(name="remove", description="Quitar monedas (admin)")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Cantidad")
     @app_commands.checks.has_permissions(administrator=True)
@@ -355,7 +355,7 @@ class Economy(commands.Cog):
         await self._set_bal(user.id, interaction.guild.id, max(0, bal - cantidad))
         await send_ephemeral(interaction, embed=success_embed("➖ Monedas", f"{user.mention}: -{cantidad} 🪙"))
 
-    @economy.command(name="set", description="🔧 Establecer monedas (admin)")
+    @economy.command(name="set", description="Establecer monedas (admin)")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Nuevo balance")
     @app_commands.checks.has_permissions(administrator=True)
@@ -364,7 +364,7 @@ class Economy(commands.Cog):
         await self._set_bal(user.id, interaction.guild.id, max(0, cantidad))
         await send_ephemeral(interaction, embed=success_embed("🔧 Balance", f"{user.mention}: {cantidad} 🪙"))
 
-    @economy.command(name="reset", description="🔄 Resetear economía de un usuario")
+    @economy.command(name="reset", description="Resetear economía de un usuario")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(administrator=True)
@@ -373,7 +373,7 @@ class Economy(commands.Cog):
         await self.bot.db.update_member(user.id, interaction.guild.id, balance=config.STARTING_BALANCE, bank=0, total_earned=0, total_spent=0)
         await send_ephemeral(interaction, embed=success_embed("🔄 Economía reseteada", user.mention))
 
-    @economy.command(name="shop_add", description="➕ Añadir artículo a la tienda")
+    @economy.command(name="shop_add", description="Añadir artículo a la tienda")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(name="Nombre", description="Descripción", role="Rol", price="Precio", emoji="Emoji")
     @app_commands.checks.has_permissions(administrator=True)
@@ -382,7 +382,7 @@ class Economy(commands.Cog):
         await self.bot.db.add_shop_item(interaction.guild.id, name, description, role.id, price, emoji)
         await send_ephemeral(interaction, embed=success_embed("➕ Artículo", f"{emoji} {name} · {price} 🪙"))
 
-    @economy.command(name="shop_remove", description="➖ Quitar artículo de la tienda")
+    @economy.command(name="shop_remove", description="Quitar artículo de la tienda")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(item_id="ID del artículo")
     @app_commands.checks.has_permissions(administrator=True)

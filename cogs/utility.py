@@ -5,9 +5,79 @@ import datetime
 import platform
 import time
 import math
+import asyncio
 import config
 from utils.embeds import PremiumEmbed, info_embed, error_embed, success_embed, send_ephemeral
-from utils.paginator import ButtonPaginator, ReactionPaginator
+from utils.paginator import ButtonPaginator
+
+
+class HelpSelect(discord.ui.Select):
+    def __init__(self, categories, bot):
+        self.categories = categories
+        self.bot = bot
+        options = []
+        for name, cog_name, desc in categories:
+            cog = bot.get_cog(cog_name)
+            cmd_count = len(list(cog.walk_app_commands())) if cog else 0
+            options.append(discord.SelectOption(
+                label=name,
+                description=f"{cmd_count} comandos",
+                value=cog_name
+            ))
+        super().__init__(
+            placeholder="Selecciona una categoria...",
+            min_values=1, max_values=1, options=options
+        )
+
+    async def callback(self, interaction):
+        cog_name = self.values[0]
+        cog = self.bot.get_cog(cog_name)
+        if not cog:
+            return await interaction.response.send_message(
+                "Categoria no encontrada.", ephemeral=True
+            )
+        cmds = list(cog.walk_app_commands())
+        label = cog_name
+        cat_desc = ""
+        for name, cn, desc in self.categories:
+            if cn == cog_name:
+                label = name
+                cat_desc = desc
+                break
+        embed = PremiumEmbed(
+            title=label,
+            description=cat_desc,
+            color=config.COLORS["purple"]
+        )
+        if cmds:
+            lines = []
+            for cmd in cmds:
+                lines.append(f"`/{cmd.name}`  —  {cmd.description or 'Sin descripcion'}")
+            embed.add_field(
+                name=f"Comandos ({len(cmds)})",
+                value="\n".join(lines),
+                inline=False
+            )
+        else:
+            embed.add_field(name="Comandos", value="Ninguno", inline=False)
+        embed.set_footer(text="Comunidad de Programadores")
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class HelpView(discord.ui.View):
+    def __init__(self, categories, bot):
+        super().__init__(timeout=120)
+        self.add_item(HelpSelect(categories, bot))
+        self.main_embed = None
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        if self.main_embed:
+            try:
+                await self.message.edit(view=self)
+            except:
+                pass
 
 
 class Utility(commands.Cog):
@@ -19,9 +89,30 @@ class Utility(commands.Cog):
 
     tools = app_commands.Group(name="tools", description="Herramientas adicionales")
 
+    CATEGORIES = [
+        ("Moderacion", "Moderation", "Gestion de sanciones, warns y proteccion del servidor"),
+        ("Automod", "AutoMod", "Filtro automatico de spam, links y menciones"),
+        ("Anti-Nuke", "AntiNuke", "Proteccion contra acciones destructivas masivas"),
+        ("Reputacion", "Reputation", "Sistema de reputacion, ranking y recompensas"),
+        ("Niveles", "Levels", "Sistema de XP, niveles y roles automaticos"),
+        ("Economia", "Economy", "Monedas, tienda y economia virtual"),
+        ("Tickets", "Tickets", "Sistema de soporte con tickets interactivos"),
+        ("Bienvenidas", "Welcome", "Mensajes de bienvenida, despedida y autorol"),
+        ("Logs", "Logs", "Registro de eventos y auditoria del servidor"),
+        ("Utilidad", "Utility", "Informacion, herramientas y comandos de ayuda"),
+        ("Diversion", "Fun", "Comandos entretenidos y minijuegos"),
+        ("Sugerencias", "Suggestions", "Sistema de sugerencias con votacion"),
+        ("Reportes", "Reports", "Sistema de reportes de usuarios"),
+        ("Verificacion", "Verification", "Sistema de verificacion con botones"),
+        ("Reaction Roles", "ReactionRoles", "Roles por reacciones y botones"),
+        ("Giveaways", "Giveaways", "Sorteos y premios automaticos"),
+        ("Configuracion", "ConfigCog", "Ajustes generales del bot en el servidor"),
+        ("Panel", "Panel", "Panel de control interactivo del servidor"),
+    ]
+
     # ─── HELP ───────────────────────────────────────────────────────────
 
-    @app_commands.command(name="help", description="Ver todos los comandos del bot")
+    @app_commands.command(name="help", description="Explorar todos los comandos del bot")
     @app_commands.describe(comando="Comando especifico para ver detalles")
     async def help(self, interaction: discord.Interaction, comando: str = None):
         await interaction.response.defer(ephemeral=True)
@@ -33,68 +124,46 @@ class Utility(commands.Cog):
                         e = PremiumEmbed(
                             title=f"/{cmd.name}",
                             description=cmd.description or "Sin descripcion",
-                            color=config.EMBED_COLOR
+                            color=config.COLORS["purple"]
                         )
+                        e.set_footer(text="Comunidad de Programadores")
                         await send_ephemeral(interaction, embed=e)
                         return
-            return await send_ephemeral(interaction, embed=error_embed("Comando no encontrado", f"No existe el comando `/{comando}`."))
-
-        categories = [
-            ("Moderacion", "Moderation", "Gestion de sanciones, warns, purgas y proteccion del servidor"),
-            ("Automod", "AutoMod", "Filtro automatico de spam, links, menciones y palabras prohibidas"),
-            ("Anti-Nuke", "AntiNuke", "Proteccion contra acciones destructivas masivas"),
-            ("Reputacion", "Reputation", "Sistema de reputacion, ranking y recompensas"),
-            ("Niveles", "Levels", "Sistema de XP, niveles y roles automaticos"),
-            ("Economia", "Economy", "Monedas, tienda, apuestas y economia virtual"),
-            ("Tickets", "Tickets", "Sistema de soporte con tickets interactivos"),
-            ("Bienvenidas", "Welcome", "Mensajes de bienvenida, despedida y autorol"),
-            ("Logs", "Logs", "Registro de eventos y auditoria del servidor"),
-            ("Utilidad", "Utility", "Informacion, herramientas y comandos de ayuda"),
-            ("Diversion", "Fun", "Comandos entretenidos y minijuegos"),
-            ("Sugerencias", "Suggestions", "Sistema de sugerencias con votacion"),
-            ("Reportes", "Reports", "Sistema de reportes de usuarios"),
-            ("Verificacion", "Verification", "Sistema de verificacion con botones"),
-            ("Reaction Roles", "ReactionRoles", "Roles por reacciones y botones"),
-            ("Giveaways", "Giveaways", "Sorteos y premios automaticos"),
-            ("Configuracion", "ConfigCog", "Ajustes generales del bot en el servidor"),
-            ("Panel", "Panel", "Panel de control interactivo del servidor"),
-        ]
-
-        per_page = 6
-        chunks = [categories[i:i+per_page] for i in range(0, len(categories), per_page)]
-        pages = []
-
-        for chunk_idx, chunk in enumerate(chunks):
-            e = PremiumEmbed(
-                title=f"Comandos de {self.bot.user.name}",
-                description=f"Pagina {chunk_idx+1}/{len(chunks)}  |  Usa `/help <comando>` para ver detalles de un comando.",
-                color=config.EMBED_COLOR,
+            return await send_ephemeral(
+                interaction,
+                embed=error_embed("Comando no encontrado", f"No existe el comando `/{comando}`.")
             )
-            e.set_thumbnail(url=self.bot.user.display_avatar.url)
-            for name, cog_name, desc in chunk:
-                cog = self.bot.get_cog(cog_name)
-                if cog:
-                    cmds = [f"/{c.name}" for c in cog.walk_app_commands()]
-                    if cmds:
-                        cmd_list = "`" + "`, `".join(cmds[:8]) + ("`..." if len(cmds) > 8 else "`")
-                        e.add_field(
-                            name=name,
-                            value=f"{cmd_list}\n{desc}",
-                            inline=False
-                        )
-            if chunk_idx == len(chunks) - 1:
-                e.add_field(
-                    name="Enlaces",
-                    value=f"[Invitacion](https://discord.com/oauth2/authorize?client_id={self.bot.user.id})  |  [Dashboard]({config.DASHBOARD_URL})",
-                    inline=False
-                )
-            pages.append(e)
 
-        if len(pages) > 1:
-            pag = ButtonPaginator(pages, interaction, timeout=60)
-            await pag.start()
-        else:
-            await send_ephemeral(interaction, embed=pages[0])
+        embed = PremiumEmbed(
+            title="Centro de Comandos",
+            description=(
+                f"Selecciona una categoria del menu desplegable para ver sus comandos.\n"
+                f"Usa `/help <comando>` para ver detalles de un comando especifico."
+            ),
+            color=config.COLORS["purple"]
+        )
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="Comunidad de Programadores")
+
+        total_cmds = sum(
+            len(list(cog.walk_app_commands()))
+            for cog in self.bot.cogs.values()
+        )
+        embed.add_field(
+            name="Resumen",
+            value=(
+                f"**{len(self.bot.cogs)}** modulos  ·  **{total_cmds}** comandos\n"
+                f"[Dashboard]({config.DASHBOARD_URL})"
+            ),
+            inline=False
+        )
+
+        view = HelpView(self.CATEGORIES, self.bot)
+        view.main_embed = embed
+        await interaction.followup.send(embed=embed, view=view)
+        view.message = await interaction.original_response()
+
+    # ─── PING ──────────────────────────────────────────────────────────
 
     @app_commands.command(name="ping", description="Ver latencia del bot")
     async def ping(self, interaction: discord.Interaction):
@@ -105,7 +174,10 @@ class Utility(commands.Cog):
         e = PremiumEmbed(title="Ping", color=config.COLORS["green"])
         e.add_field(name="API", value=f"**{round(self.bot.latency * 1000)}ms**", inline=True)
         e.add_field(name="Base de datos", value=f"**{db_ms:.1f}ms**", inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── BOTINFO ──────────────────────────────────────────────────────
 
     @app_commands.command(name="botinfo", description="Informacion del bot")
     async def botinfo(self, interaction: discord.Interaction):
@@ -113,7 +185,7 @@ class Utility(commands.Cog):
         uptime = datetime.datetime.utcnow() - (self.bot.uptime or datetime.datetime.utcnow())
         h, rem = divmod(int(uptime.total_seconds()), 3600)
         m, s = divmod(rem, 60)
-        e = PremiumEmbed(title=f"{self.bot.user.name} - Informacion", color=config.EMBED_COLOR)
+        e = PremiumEmbed(title=f"{self.bot.user.name}  ·  Informacion", color=config.EMBED_COLOR)
         e.set_thumbnail(url=self.bot.user.display_avatar.url)
         e.add_field(name="Version", value="**3.0.0**", inline=True)
         e.add_field(name="Python", value=f"**{platform.python_version()}**", inline=True)
@@ -123,7 +195,10 @@ class Utility(commands.Cog):
         e.add_field(name="Usuarios", value=f"**{len(self.bot.users)}**", inline=True)
         e.add_field(name="Latencia", value=f"**{round(self.bot.latency * 1000)}ms**", inline=True)
         e.add_field(name="Modulos", value=f"**{len(self.bot.loaded_cogs)}**", inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── SERVERINFO ───────────────────────────────────────────────────
 
     @app_commands.command(name="serverinfo", description="Informacion del servidor")
     async def serverinfo(self, interaction: discord.Interaction):
@@ -140,7 +215,10 @@ class Utility(commands.Cog):
         e.add_field(name="Roles", value=f"**{len(g.roles)}**", inline=True)
         e.add_field(name="Boost", value=f"Nivel **{g.premium_tier}** ({g.premium_subscription_count})", inline=True)
         e.add_field(name="Verificacion", value=str(g.verification_level).capitalize(), inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── USERINFO ─────────────────────────────────────────────────────
 
     @app_commands.command(name="userinfo", description="Informacion de un usuario")
     @app_commands.describe(user="Usuario")
@@ -161,7 +239,10 @@ class Utility(commands.Cog):
         roles = [r.mention for r in user.roles if r != interaction.guild.default_role]
         if roles:
             e.add_field(name=f"Roles ({len(roles)})", value=", ".join(roles[:5]) + ("..." if len(roles) > 5 else ""), inline=False)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── AVATAR ────────────────────────────────────────────────────────
 
     @app_commands.command(name="avatar", description="Ver avatar de un usuario")
     @app_commands.describe(user="Usuario")
@@ -172,7 +253,10 @@ class Utility(commands.Cog):
         e.set_image(url=user.display_avatar.url)
         v = discord.ui.View()
         v.add_item(discord.ui.Button(label="Descargar", url=user.display_avatar.url.replace("size=", "size=4096")))
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e, view=v)
+
+    # ─── BANNER ────────────────────────────────────────────────────────
 
     @app_commands.command(name="banner", description="Ver banner de un usuario")
     @app_commands.describe(user="Usuario")
@@ -183,9 +267,12 @@ class Utility(commands.Cog):
         if u.banner:
             e = PremiumEmbed(title=f"Banner de {u.display_name}", color=config.EMBED_COLOR)
             e.set_image(url=u.banner.url)
+            e.set_footer(text="Comunidad de Programadores")
             await send_ephemeral(interaction, embed=e)
         else:
             await send_ephemeral(interaction, embed=info_embed("Sin banner", "Este usuario no tiene banner."))
+
+    # ─── ROLEINFO ──────────────────────────────────────────────────────
 
     @app_commands.command(name="roleinfo", description="Informacion de un rol")
     @app_commands.describe(rol="Rol")
@@ -198,7 +285,10 @@ class Utility(commands.Cog):
         e.add_field(name="Creacion", value=f"<t:{int(rol.created_at.timestamp())}:D>", inline=True)
         e.add_field(name="Mencionable", value="**Si**" if rol.mentionable else "**No**", inline=True)
         e.add_field(name="Separado", value="**Si**" if rol.hoist else "**No**", inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── CHANNELINFO ──────────────────────────────────────────────────
 
     @app_commands.command(name="channelinfo", description="Informacion de un canal")
     @app_commands.describe(canal="Canal")
@@ -213,7 +303,10 @@ class Utility(commands.Cog):
             e.add_field(name="Slowmode", value=f"**{canal.slowmode_delay}s**" if canal.slowmode_delay else "**No**", inline=True)
         if hasattr(canal, "category") and canal.category:
             e.add_field(name="Categoria", value=canal.category.name, inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── MEMBERCOUNT ──────────────────────────────────────────────────
 
     @app_commands.command(name="membercount", description="Contar miembros del servidor")
     async def membercount(self, interaction: discord.Interaction):
@@ -227,7 +320,10 @@ class Utility(commands.Cog):
         e.add_field(name="Bots", value=f"**{bots}**", inline=True)
         e.add_field(name="En linea", value=f"**{online}**", inline=True)
         e.add_field(name="Total", value=f"**{g.member_count}**", inline=True)
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── SERVER ICON ──────────────────────────────────────────────────
 
     @app_commands.command(name="servericon", description="Ver icono del servidor")
     async def servericon(self, interaction: discord.Interaction):
@@ -235,9 +331,12 @@ class Utility(commands.Cog):
         if interaction.guild.icon:
             e = PremiumEmbed(title=f"Icono de {interaction.guild.name}", color=config.EMBED_COLOR)
             e.set_image(url=interaction.guild.icon.url)
+            e.set_footer(text="Comunidad de Programadores")
             await send_ephemeral(interaction, embed=e)
         else:
             await send_ephemeral(interaction, embed=info_embed("Sin icono", "Este servidor no tiene icono."))
+
+    # ─── SERVER BANNER ────────────────────────────────────────────────
 
     @app_commands.command(name="serverbanner", description="Ver banner del servidor")
     async def serverbanner(self, interaction: discord.Interaction):
@@ -245,9 +344,12 @@ class Utility(commands.Cog):
         if interaction.guild.banner:
             e = PremiumEmbed(title=f"Banner de {interaction.guild.name}", color=config.EMBED_COLOR)
             e.set_image(url=interaction.guild.banner.url)
+            e.set_footer(text="Comunidad de Programadores")
             await send_ephemeral(interaction, embed=e)
         else:
             await send_ephemeral(interaction, embed=info_embed("Sin banner", "Este servidor no tiene banner."))
+
+    # ─── POLL ─────────────────────────────────────────────────────────
 
     @tools.command(name="poll", description="Crear una encuesta")
     @app_commands.describe(pregunta="Pregunta", opciones="Opciones separadas por |")
@@ -263,6 +365,8 @@ class Utility(commands.Cog):
         msg = await interaction.followup.send(embed=e)
         for i in range(len(opts)):
             await msg.add_reaction(numbers[i])
+
+    # ─── AFK ──────────────────────────────────────────────────────────
 
     @tools.command(name="afk", description="Establecer estado AFK")
     @app_commands.describe(mensaje="Mensaje AFK")
@@ -284,6 +388,8 @@ class Utility(commands.Cog):
                 dur = int(time.time() - data["since"])
                 await message.channel.send(embed=info_embed("AFK", f"{user.mention} esta AFK: {data['message']} ({dur}s)"), delete_after=10)
 
+    # ─── REMIND ───────────────────────────────────────────────────────
+
     @tools.command(name="remind", description="Crear un recordatorio")
     @app_commands.describe(tiempo="Tiempo (ej: 10m, 1h, 1d)", mensaje="Mensaje")
     async def remind(self, interaction: discord.Interaction, tiempo: str, mensaje: str):
@@ -301,6 +407,8 @@ class Utility(commands.Cog):
         except:
             await interaction.channel.send(f"{interaction.user.mention} Recordatorio: {mensaje}")
 
+    # ─── TIMESTAMP ────────────────────────────────────────────────────
+
     @tools.command(name="timestamp", description="Convertir fecha a timestamp de Discord")
     @app_commands.describe(fecha="Formato: YYYY-MM-DD HH:MM")
     async def timestamp(self, interaction: discord.Interaction, fecha: str):
@@ -313,6 +421,8 @@ class Utility(commands.Cog):
             await send_ephemeral(interaction, embed=e)
         except:
             await send_ephemeral(interaction, embed=error_embed("Error", "Formato invalido. Usa: 2024-12-25 15:00"))
+
+    # ─── SHORTEN ──────────────────────────────────────────────────────
 
     @tools.command(name="shorten", description="Acortar URL")
     @app_commands.describe(url="URL")
@@ -327,13 +437,18 @@ class Utility(commands.Cog):
         except:
             await send_ephemeral(interaction, embed=error_embed("Error", "Error al acortar."))
 
+    # ─── QR ───────────────────────────────────────────────────────────
+
     @tools.command(name="qr", description="Generar codigo QR")
     @app_commands.describe(texto="Texto o URL")
     async def qr(self, interaction: discord.Interaction, texto: str):
         await interaction.response.defer(ephemeral=True)
         e = PremiumEmbed(title="QR Code", color=config.EMBED_COLOR)
         e.set_image(url=f"https://api.qrserver.com/v1/create-qr-code/?size=256x256&data={texto}")
+        e.set_footer(text="Comunidad de Programadores")
         await send_ephemeral(interaction, embed=e)
+
+    # ─── COLOR ────────────────────────────────────────────────────────
 
     @tools.command(name="color", description="Ver un color")
     @app_commands.describe(hex_color="Color en hex (ej: #5865F2)")
@@ -346,9 +461,12 @@ class Utility(commands.Cog):
             e.add_field(name="RGB", value=f"({r}, {g}, {b})", inline=True)
             e.add_field(name="HEX", value=f"#{hex_color.upper()}", inline=True)
             e.set_image(url=f"https://singlecolorimage.com/get/{hex_color}/256x256")
+            e.set_footer(text="Comunidad de Programadores")
             await send_ephemeral(interaction, embed=e)
         except:
             await send_ephemeral(interaction, embed=error_embed("Error", "Color invalido. Usa: #5865F2"))
+
+    # ─── DEFINE ───────────────────────────────────────────────────────
 
     @tools.command(name="define", description="Definir una palabra")
     @app_commands.describe(palabra="Palabra")
@@ -373,5 +491,4 @@ class Utility(commands.Cog):
 
 
 async def setup(bot):
-    import asyncio
     await bot.add_cog(Utility(bot))

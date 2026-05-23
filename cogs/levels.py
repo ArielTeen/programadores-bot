@@ -49,7 +49,7 @@ class Levels(commands.Cog):
         g = await self.bot.db.get_guild(guild_id)
         msg = g.get("level_message", "🎉 ¡{user} ha subido al nivel **{level}**!").format(user=member.mention, level=level, name=member.name)
         ch_id = g.get("level_channel")
-        embed = PremiumEmbed(title="🎉 ¡Subiste de nivel!", description=msg, color=config.COLORS["purple"])
+        embed = PremiumEmbed(title="¡Subiste de nivel!", description=msg, color=config.COLORS["purple"])
         embed.set_thumbnail(url=member.display_avatar.url)
         try:
             await member.send(embed=embed)
@@ -110,7 +110,7 @@ class Levels(commands.Cog):
                         await self.bot.db.update_member(member.id, member.guild.id, total_xp=md["total_xp"], voice_xp=md["voice_xp"])
 
     # ── Comandos ─────────────────────────────────────────────────────────────
-    @app_commands.command(name="rank", description="📊 Ver tu nivel")
+    @app_commands.command(name="rank", description="Ver tu nivel")
     @app_commands.describe(user="Usuario (opcional)")
     async def rank(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
@@ -126,15 +126,15 @@ class Levels(commands.Cog):
         bar = "🟩" * int(pct / 100 * 12) + "⬜" * (12 - int(pct / 100 * 12))
         embed = PremiumEmbed(title=f"📊 {user.display_name}", color=user.color or config.EMBED_COLOR)
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="🏆 Nivel", value=str(level), inline=True)
-        embed.add_field(name="✨ XP", value=f"{xp:,}/{needed:,}", inline=True)
-        embed.add_field(name="📊 Total XP", value=f"{total:,}", inline=True)
-        embed.add_field(name="📈 Progreso", value=f"{bar} {pct:.0f}%", inline=False)
-        embed.add_field(name="🎙️ XP Voz", value=str(md.get("voice_xp", 0)), inline=True)
-        embed.add_field(name="#️⃣ Ranking", value=f"#{rank}" if rank else "N/A", inline=True)
+        embed.add_field(name="Nivel", value=str(level), inline=True)
+        embed.add_field(name="XP", value=f"{xp:,}/{needed:,}f", inline=True)
+        embed.add_field(name="Total XP", value=f"{total:,}f", inline=True)
+        embed.add_field(name="Progreso", value=f"{bar} {pct:.0f}%f", inline=False)
+        embed.add_field(name="XP Voz", value=str(md.get("voice_xp", 0)), inline=True)
+        embed.add_field(name="#⃣ Ranking", value=f"#{rank}f" if rank else "N/A", inline=True)
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="leaderboard", description="🏆 Ranking del servidor")
+    @app_commands.command(name="leaderboard", description="Ranking del servidor")
     @app_commands.describe(tipo="xp, level, reputation, balance")
     async def leaderboard(self, interaction: discord.Interaction, tipo: str = "xp"):
         await interaction.response.defer(ephemeral=True)
@@ -161,7 +161,7 @@ class Levels(commands.Cog):
                 rank = start_rank + i
                 prefix = medals[i] if i < 3 else f"`#{rank}`"
                 val = r.get(stat, 0)
-                embed.add_field(name=f"{prefix} {name}", value=f"{labels.get(stat, stat)}: **{val:,}**", inline=False)
+                embed.add_field(name=f"{prefix} {name}f", value=f"{labels.get(stat, stat)}: **{val:,}**f", inline=False)
             pages.append(embed)
         if len(pages) <= 1:
             return await send_ephemeral(interaction, embed=pages[0])
@@ -173,9 +173,9 @@ class Levels(commands.Cog):
         opts = [("xp", "xp"), ("level", "level"), ("reputacion", "reputación"), ("balance", "balance")]
         return [app_commands.Choice(name=n, value=v) for n, v in opts if current.lower() in n.lower()]
 
-    xp = app_commands.Group(name="xp", description="✨ Gestionar XP (staff)")
+    xp = app_commands.Group(name="xp", description="Gestionar XP (staff)")
 
-    @xp.command(name="add", description="➕ Añadir XP a un usuario")
+    @xp.command(name="add", description="Añadir XP a un usuario")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Cantidad")
     @app_commands.checks.has_permissions(administrator=True)
@@ -189,7 +189,7 @@ class Levels(commands.Cog):
         await self.bot.db.update_member(user.id, interaction.guild.id, total_xp=md["total_xp"], level=new_lv, xp=md["xp"])
         await send_ephemeral(interaction, embed=success_embed("➕ XP añadida", f"{user.mention}: +{cantidad} XP"))
 
-    @xp.command(name="remove", description="➖ Quitar XP")
+    @xp.command(name="remove", description="Quitar XP")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Cantidad")
     @app_commands.checks.has_permissions(administrator=True)
@@ -203,7 +203,7 @@ class Levels(commands.Cog):
         await self.bot.db.update_member(user.id, interaction.guild.id, total_xp=md["total_xp"], level=new_lv, xp=md["xp"])
         await send_ephemeral(interaction, embed=success_embed("➖ XP quitada", f"{user.mention}: -{cantidad} XP"))
 
-    @xp.command(name="set", description="🔧 Establecer XP total")
+    @xp.command(name="set", description="Establecer XP total")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario", cantidad="Nuevo total XP")
     @app_commands.checks.has_permissions(administrator=True)
@@ -217,7 +217,7 @@ class Levels(commands.Cog):
         await self.bot.db.update_member(user.id, interaction.guild.id, total_xp=md["total_xp"], level=new_lv, xp=md["xp"])
         await send_ephemeral(interaction, embed=success_embed("🔧 XP establecida", f"{user.mention}: {cantidad} XP"))
 
-    @xp.command(name="reset", description="🔄 Resetear XP de un usuario")
+    @xp.command(name="reset", description="Resetear XP de un usuario")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(user="Usuario")
     @app_commands.checks.has_permissions(administrator=True)
@@ -226,9 +226,9 @@ class Levels(commands.Cog):
         await self.bot.db.update_member(user.id, interaction.guild.id, xp=0, level=0, total_xp=0)
         await send_ephemeral(interaction, embed=success_embed("🔄 XP reseteada", user.mention))
 
-    levelroles = app_commands.Group(name="levelroles", description="🎭 Roles de nivel")
+    levelroles = app_commands.Group(name="levelroles", description="Roles de nivel")
 
-    @levelroles.command(name="add", description="➕ Añadir rol por nivel")
+    @levelroles.command(name="add", description="Añadir rol por nivel")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(level="Nivel requerido", role="Rol")
     @app_commands.checks.has_permissions(administrator=True)
@@ -237,7 +237,7 @@ class Levels(commands.Cog):
         await self.bot.db.add_level_role(interaction.guild.id, level, role.id)
         await send_ephemeral(interaction, embed=success_embed("🎭 Rol de nivel", f"Nivel {level} → {role.mention}"))
 
-    @levelroles.command(name="remove", description="➖ Quitar rol por nivel")
+    @levelroles.command(name="remove", description="Quitar rol por nivel")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(level="Nivel")
     @app_commands.checks.has_permissions(administrator=True)
@@ -246,7 +246,7 @@ class Levels(commands.Cog):
         await self.bot.db.remove_level_role(interaction.guild.id, level)
         await send_ephemeral(interaction, embed=success_embed("➖ Rol de nivel quitado", f"Nivel {level}"))
 
-    @levelroles.command(name="list", description="📋 Listar roles de nivel")
+    @levelroles.command(name="list", description="Listar roles de nivel")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def lr_list(self, interaction: discord.Interaction):
@@ -254,13 +254,13 @@ class Levels(commands.Cog):
         rows = await self.bot.db.get_level_roles(interaction.guild.id)
         if not rows:
             return await send_ephemeral(interaction, embed=info_embed("📋", "No hay roles de nivel."))
-        embed = PremiumEmbed(title="🎭 Roles de nivel", color=config.EMBED_COLOR)
+        embed = PremiumEmbed(title="Roles de nivel", color=config.EMBED_COLOR)
         for r in rows:
             role = interaction.guild.get_role(r["role_id"])
-            embed.add_field(name=f"Nivel {r['level']}", value=role.mention if role else "Rol eliminado", inline=False)
+            embed.add_field(name=f"Nivel {r['level']}f", value=role.mention if role else "Rol eliminado", inline=False)
         await send_ephemeral(interaction, embed=embed)
 
-    @app_commands.command(name="levelconfig", description="⚙️ Configurar sistema de niveles")
+    @app_commands.command(name="levelconfig", description="Configurar sistema de niveles")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal de notificaciones (0=DM)", message="Mensaje de subida de nivel")
     @app_commands.checks.has_permissions(administrator=True)
@@ -272,7 +272,7 @@ class Levels(commands.Cog):
             await self.bot.db.update_guild(interaction.guild.id, level_message=message)
         await send_ephemeral(interaction, embed=success_embed("⚙️ Level config actualizada"))
 
-    @app_commands.command(name="levelmessage", description="📝 Ver mensaje de nivel actual")
+    @app_commands.command(name="levelmessage", description="Ver mensaje de nivel actual")
     async def levelmessage(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         g = await self.bot.db.get_guild(interaction.guild.id)

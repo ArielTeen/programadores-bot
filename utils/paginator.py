@@ -2,7 +2,6 @@ import discord
 
 
 class ButtonPaginator(discord.ui.View):
-    """Paginator profesional con botones en vez de reacciones."""
 
     def __init__(self, pages, interaction, timeout=60, only_author=True):
         super().__init__(timeout=timeout)
@@ -24,7 +23,7 @@ class ButtonPaginator(discord.ui.View):
         embed = self.pages[self.current].copy()
         if len(self.pages) > 1:
             embed.set_footer(
-                text=f"Teen Bot Premium  Pagina {self.current + 1}/{len(self.pages)}",
+                text=f"Pagina {self.current + 1}/{len(self.pages)}  ·  Comunidad de Programadores",
                 icon_url=(
                     self.interaction.client.user.display_avatar.url
                     if self.interaction.client and self.interaction.client.user
@@ -91,7 +90,6 @@ class ButtonPaginator(discord.ui.View):
 
 
 class ReactionPaginator:
-    """Legacy reaction-based paginator — mantenido por compatibilidad."""
 
     def __init__(self, interaction, pages, timeout=60, only_author=True):
         self.interaction = interaction
@@ -115,7 +113,7 @@ class ReactionPaginator:
         embed = self.pages[0].copy()
         if len(self.pages) > 1:
             embed.set_footer(
-                text=f"Teen Bot Premium  Pagina 1/{len(self.pages)}  Reacciona para navegar",
+                text=f"Pagina 1/{len(self.pages)}  ·  Comunidad de Programadores",
                 icon_url=(
                     self.interaction.client.user.display_avatar.url
                     if self.interaction.client and self.interaction.client.user
@@ -185,7 +183,7 @@ class ReactionPaginator:
     async def _update(self):
         embed = self.pages[self.current].copy()
         embed.set_footer(
-            text=f"Teen Bot Premium  Pagina {self.current + 1}/{len(self.pages)}  Reacciona para navegar",
+            text=f"Pagina {self.current + 1}/{len(self.pages)}  ·  Comunidad de Programadores",
             icon_url=(
                 self.interaction.client.user.display_avatar.url
                 if self.interaction.client and self.interaction.client.user

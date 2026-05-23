@@ -34,7 +34,7 @@ class Welcome(commands.Cog):
                     color=config.COLORS["green"],
                 )
                 embed.set_thumbnail(url=member.display_avatar.url)
-                embed.add_field(name="📊 Miembros", value=str(member.guild.member_count), inline=True)
+                embed.add_field(name="Miembros", value=str(member.guild.member_count), inline=True)
                 embed.add_field(name="🆔 ID", value=str(member.id), inline=True)
                 try:
                     await ch.send(embed=embed)
@@ -52,10 +52,10 @@ class Welcome(commands.Cog):
                     pass
 
         # Log
-        log_embed = PremiumEmbed(title="👋 Miembro Unido", color=config.COLORS["green"])
+        log_embed = PremiumEmbed(title="Miembro Unido", color=config.COLORS["green"])
         log_embed.add_field(name="Usuario", value=member.mention, inline=True)
         log_embed.add_field(name="ID", value=str(member.id), inline=True)
-        log_embed.add_field(name="Cuenta creada", value=f"<t:{int(member.created_at.timestamp())}:R>", inline=False)
+        log_embed.add_field(name="Cuenta creada", value=f"<t:{int(member.created_at.timestamp())}:R>f", inline=False)
         await send_log(self.bot, member.guild.id, "members", log_embed)
 
     @commands.Cog.listener()
@@ -78,26 +78,26 @@ class Welcome(commands.Cog):
                     color=config.COLORS["orange"],
                 )
                 embed.set_thumbnail(url=member.display_avatar.url)
-                embed.add_field(name="📊 Miembros ahora", value=str(member.guild.member_count))
+                embed.add_field(name="Miembros ahora", value=str(member.guild.member_count))
                 try:
                     await ch.send(embed=embed)
                 except:
                     pass
 
-        log_embed = PremiumEmbed(title="👋 Miembro Salió", color=config.COLORS["orange"])
+        log_embed = PremiumEmbed(title="Miembro Salió", color=config.COLORS["orange"])
         log_embed.add_field(name="Usuario", value=str(member), inline=True)
         log_embed.add_field(name="ID", value=str(member.id), inline=True)
         await send_log(self.bot, member.guild.id, "members", log_embed)
 
     @commands.Cog.listener()
     async def on_member_boost(self, member: discord.Member):
-        log_embed = PremiumEmbed(title="🚀 Boost!", description=f"{member.mention} boosteó el servidor!", color=config.COLORS["purple"])
+        log_embed = PremiumEmbed(title="Boost!", description=f"{member.mention} boosteó el servidor!f", color=config.COLORS["purple"])
         await send_log(self.bot, member.guild.id, "members", log_embed)
 
     # ── Comandos ─────────────────────────────────────────────────────────────
-    welcome = app_commands.Group(name="welcome", description="👋 Configurar bienvenidas")
+    welcome = app_commands.Group(name="welcome", description="Configurar bienvenidas")
 
-    @welcome.command(name="setup", description="⚙️ Configurar bienvenidas")
+    @welcome.command(name="setup", description="Configurar bienvenidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal", message="Mensaje ({user}, {guild}, {name})")
     @app_commands.checks.has_permissions(administrator=True)
@@ -108,7 +108,7 @@ class Welcome(commands.Cog):
             await self.bot.db.update_guild(interaction.guild.id, welcome_message=message)
         await interaction.followup.send(embed=success_embed("👋 Bienvenidas configuradas", channel.mention))
 
-    @welcome.command(name="enable", description="✅ Activar bienvenidas")
+    @welcome.command(name="enable", description="Activar bienvenidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def welcome_enable(self, interaction):
@@ -116,7 +116,7 @@ class Welcome(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, welcome_enabled=1)
         await interaction.followup.send(embed=success_embed("✅ Bienvenidas activadas"))
 
-    @welcome.command(name="disable", description="❌ Desactivar bienvenidas")
+    @welcome.command(name="disable", description="Desactivar bienvenidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def welcome_disable(self, interaction):
@@ -124,7 +124,7 @@ class Welcome(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, welcome_enabled=0)
         await interaction.followup.send(embed=success_embed("❌ Bienvenidas desactivadas"))
 
-    @welcome.command(name="test", description="🧪 Probar mensaje de bienvenida")
+    @welcome.command(name="test", description="Probar mensaje de bienvenida")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def welcome_test(self, interaction):
@@ -133,10 +133,10 @@ class Welcome(commands.Cog):
         msg = g.get("welcome_message", "¡Bienvenido {user} a **{guild}**!").format(
             user=interaction.user.mention, guild=interaction.guild.name, name=interaction.user.name
         )
-        embed = PremiumEmbed(title="👋 Bienvenida (test)", description=msg, color=config.COLORS["green"])
+        embed = PremiumEmbed(title="Bienvenida (test)", description=msg, color=config.COLORS["green"])
         await interaction.followup.send(embed=embed)
 
-    @welcome.command(name="channel", description="📝 Cambiar canal de bienvenidas")
+    @welcome.command(name="channel", description="Cambiar canal de bienvenidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
@@ -145,9 +145,9 @@ class Welcome(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, welcome_channel=channel.id)
         await interaction.followup.send(embed=success_embed("📝 Canal de bienvenidas", channel.mention))
 
-    goodbye = app_commands.Group(name="goodbye", description="👋 Configurar despedidas")
+    goodbye = app_commands.Group(name="goodbye", description="Configurar despedidas")
 
-    @goodbye.command(name="enable", description="✅ Activar despedidas")
+    @goodbye.command(name="enable", description="Activar despedidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def goodbye_enable(self, interaction):
@@ -155,7 +155,7 @@ class Welcome(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, goodbye_enabled=1)
         await interaction.followup.send(embed=success_embed("✅ Despedidas activadas"))
 
-    @goodbye.command(name="disable", description="❌ Desactivar despedidas")
+    @goodbye.command(name="disable", description="Desactivar despedidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def goodbye_disable(self, interaction):
@@ -163,7 +163,7 @@ class Welcome(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, goodbye_enabled=0)
         await interaction.followup.send(embed=success_embed("❌ Despedidas desactivadas"))
 
-    @goodbye.command(name="test", description="🧪 Probar mensaje de despedida")
+    @goodbye.command(name="test", description="Probar mensaje de despedida")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def goodbye_test(self, interaction):
@@ -172,12 +172,12 @@ class Welcome(commands.Cog):
         msg = g.get("goodbye_message", "{user} ha abandonado el servidor.").format(
             user=interaction.user.name, guild=interaction.guild.name
         )
-        embed = PremiumEmbed(title="👋 Despedida (test)", description=msg, color=config.COLORS["orange"])
+        embed = PremiumEmbed(title="Despedida (test)", description=msg, color=config.COLORS["orange"])
         await interaction.followup.send(embed=embed)
 
-    autorole = app_commands.Group(name="autorole", description="🎭 Roles automáticos")
+    autorole = app_commands.Group(name="autorole", description="Roles automáticos")
 
-    @autorole.command(name="add", description="➕ Añadir autorol")
+    @autorole.command(name="add", description="Añadir autorol")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="Rol")
     @app_commands.checks.has_permissions(administrator=True)
@@ -186,7 +186,7 @@ class Welcome(commands.Cog):
         await self.bot.db.add_automod_whitelist(interaction.guild.id, role.id, "autorole")
         await interaction.followup.send(embed=success_embed("🎭 Autorol añadido", role.mention))
 
-    @autorole.command(name="remove", description="➖ Quitar autorol")
+    @autorole.command(name="remove", description="Quitar autorol")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="Rol")
     @app_commands.checks.has_permissions(administrator=True)
@@ -195,7 +195,7 @@ class Welcome(commands.Cog):
         await self.bot.db.remove_automod_whitelist(interaction.guild.id, role.id)
         await interaction.followup.send(embed=success_embed("🎭 Autorol quitado", role.mention))
 
-    @autorole.command(name="list", description="📋 Listar autoroles")
+    @autorole.command(name="list", description="Listar autoroles")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def autorole_list(self, interaction):

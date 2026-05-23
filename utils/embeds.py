@@ -10,11 +10,11 @@ class PremiumEmbed(discord.Embed):
     def set_standard_footer(self, bot=None):
         if bot and bot.user:
             self.set_footer(
-                text=f"Teen Bot Premium  {bot.user.name}",
+                text=f"Comunidad de Programadores  ·  {bot.user.name}",
                 icon_url=bot.user.display_avatar.url,
             )
         else:
-            self.set_footer(text="Teen Bot Premium")
+            self.set_footer(text="Comunidad de Programadores")
         return self
 
 

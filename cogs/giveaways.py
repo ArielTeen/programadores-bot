@@ -41,7 +41,7 @@ class Giveaways(commands.Cog):
                 msg = await ch.fetch_message(gw["message_id"])
                 e = msg.embeds[0]
                 e.color = config.ERROR_COLOR
-                e.add_field(name="🎉 Resultado", value="Sin participantes.", inline=False)
+                e.add_field(name="Resultado", value="Sin participantes.", inline=False)
                 await msg.edit(embed=e)
             except:
                 pass
@@ -60,16 +60,16 @@ class Giveaways(commands.Cog):
             msg = await ch.fetch_message(gw["message_id"])
             e = msg.embeds[0]
             e.color = config.SUCCESS_COLOR
-            e.add_field(name="🎉 Ganadores", value=", ".join(winner_mentions) or "Nadie", inline=False)
+            e.add_field(name="Ganadores", value="".join(winner_mentions) or "Nadie", inline=False)
             await msg.edit(embed=e)
             await ch.send(f"🎉 **{gw['prize']}**\nGanadores: {', '.join(winner_mentions)}\n{', '.join(w.mention for w in winners if guild.get_member(w['user_id']))}")
         except:
             pass
         await self.bot.db.end_giveaway(gw["message_id"])
 
-    giveaway = app_commands.Group(name="giveaway", description="🎉 Gestionar giveaways")
+    giveaway = app_commands.Group(name="giveaway", description="Gestionar giveaways")
 
-    @giveaway.command(name="start", description="🎉 Iniciar un giveaway")
+    @giveaway.command(name="start", description="Iniciar un giveaway")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(premio="Premio", duracion="Duración (ej: 1h, 1d)", ganadores="Número de ganadores", canal="Canal")
     @app_commands.checks.has_permissions(administrator=True)
@@ -84,10 +84,10 @@ class Giveaways(commands.Cog):
             return await interaction.followup.send(embed=error_embed("❌", f"Ganadores entre 1 y {config.GIVEAWAY_MAX_WINNERS}."))
         end_time = time.time() + secs
         e = PremiumEmbed(title=f"🎉 {premio}", color=config.COLORS["gold"])
-        e.add_field(name="🏆 Premio", value=premio, inline=True)
-        e.add_field(name="👥 Ganadores", value=str(ganadores), inline=True)
-        e.add_field(name="⏰ Termina", value=f"<t:{int(end_time)}:R>", inline=False)
-        e.add_field(name="🖊️ Hosted por", value=interaction.user.mention, inline=False)
+        e.add_field(name="Premio", value=premio, inline=True)
+        e.add_field(name="Ganadores", value=str(ganadores), inline=True)
+        e.add_field(name="Termina", value=f"<t:{int(end_time)}:R>f", inline=False)
+        e.add_field(name="Hosted por", value=interaction.user.mention, inline=False)
         e.set_footer(text="Presiona 🎉 para participar!")
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="🎉 Participar", style=discord.ButtonStyle.primary, custom_id=f"gw_join_{int(end_time)}", emoji="🎉"))
@@ -114,7 +114,7 @@ class Giveaways(commands.Cog):
             except:
                 await interaction.response.send_message("Error.", ephemeral=True)
 
-    @giveaway.command(name="end", description="⏹️ Terminar giveaway antes de tiempo")
+    @giveaway.command(name="end", description="Terminar giveaway antes de tiempo")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(message_id="ID del mensaje")
     @app_commands.checks.has_permissions(administrator=True)
@@ -133,7 +133,7 @@ class Giveaways(commands.Cog):
         except:
             await interaction.followup.send(embed=error_embed("❌", "Error."))
 
-    @giveaway.command(name="reroll", description="🔄 Re-elegir ganador")
+    @giveaway.command(name="reroll", description="Re-elegir ganador")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(message_id="ID del mensaje")
     @app_commands.checks.has_permissions(administrator=True)
@@ -160,7 +160,7 @@ class Giveaways(commands.Cog):
         except:
             await interaction.followup.send(embed=error_embed("❌", "Error."))
 
-    @giveaway.command(name="list", description="📋 Listar giveaways activos")
+    @giveaway.command(name="list", description="Listar giveaways activos")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def gw_list(self, interaction: discord.Interaction):
@@ -169,11 +169,11 @@ class Giveaways(commands.Cog):
         active = [r for r in rows if not r["finished"]]
         if not active:
             return await interaction.followup.send(embed=info_embed("🎉", "Sin giveaways activos."))
-        embed = PremiumEmbed(title="🎉 Giveaways activos", color=config.COLORS["gold"])
+        embed = PremiumEmbed(title="Giveaways activos", color=config.COLORS["gold"])
         for gw in active[:10]:
             embed.add_field(
                 name=gw["prize"],
-                value=f"ID: `{gw['message_id']}` · Termina: <t:{int(gw['end_time'])}:R> · Ganadores: {gw['winners']}",
+                value=f"ID: `{gw['message_id']}` · Termina: <t:{int(gw['end_time'])}:R> · Ganadores: {gw['winners']}f",
                 inline=False,
             )
         await interaction.followup.send(embed=embed)

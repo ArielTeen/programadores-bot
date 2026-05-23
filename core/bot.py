@@ -22,7 +22,7 @@ class Bot(commands.Bot):
         )
         self.db = Database()
         self.uptime = None
-        self.logger = logging.getLogger("TeenBot")
+        self.logger = logging.getLogger("Bot")
 
     async def _get_prefix(self, msg: discord.Message):
         if not msg.guild:

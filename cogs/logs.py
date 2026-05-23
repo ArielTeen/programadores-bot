@@ -15,7 +15,7 @@ class Logs(commands.Cog):
     async def on_message_delete(self, message):
         if message.author.bot or not message.guild:
             return
-        embed = PremiumEmbed(title="🗑️ Mensaje eliminado", color=config.ERROR_COLOR)
+        embed = PremiumEmbed(title="Mensaje eliminado", color=config.ERROR_COLOR)
         embed.add_field(name="Autor", value=message.author.mention, inline=True)
         embed.add_field(name="Canal", value=message.channel.mention, inline=True)
         embed.add_field(name="Contenido", value=message.content[:1000] or "Sin contenido", inline=False)
@@ -25,7 +25,7 @@ class Logs(commands.Cog):
     async def on_message_edit(self, before, after):
         if before.author.bot or not before.guild or before.content == after.content:
             return
-        embed = PremiumEmbed(title="✏️ Mensaje editado", color=config.WARNING_COLOR)
+        embed = PremiumEmbed(title="Mensaje editado", color=config.WARNING_COLOR)
         embed.add_field(name="Autor", value=before.author.mention, inline=True)
         embed.add_field(name="Canal", value=before.channel.mention, inline=True)
         embed.add_field(name="Antes", value=before.content[:500] or "N/A", inline=False)
@@ -34,28 +34,28 @@ class Logs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
-        embed = PremiumEmbed(title="📁 Canal creado", color=config.SUCCESS_COLOR)
+        embed = PremiumEmbed(title="Canal creado", color=config.SUCCESS_COLOR)
         embed.add_field(name="Nombre", value=channel.mention, inline=True)
         embed.add_field(name="Tipo", value=str(channel.type), inline=True)
         await self._send(channel.guild.id, "channels", embed)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        embed = PremiumEmbed(title="🗑️ Canal eliminado", color=config.ERROR_COLOR)
+        embed = PremiumEmbed(title="Canal eliminado", color=config.ERROR_COLOR)
         embed.add_field(name="Nombre", value=channel.name, inline=True)
         embed.add_field(name="Tipo", value=str(channel.type), inline=True)
         await self._send(channel.guild.id, "channels", embed)
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role):
-        embed = PremiumEmbed(title="🎭 Rol creado", color=config.SUCCESS_COLOR)
+        embed = PremiumEmbed(title="Rol creado", color=config.SUCCESS_COLOR)
         embed.add_field(name="Nombre", value=role.mention, inline=True)
         embed.add_field(name="Color", value=str(role.color), inline=True)
         await self._send(role.guild.id, "roles", embed)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role):
-        embed = PremiumEmbed(title="🗑️ Rol eliminado", color=config.ERROR_COLOR)
+        embed = PremiumEmbed(title="Rol eliminado", color=config.ERROR_COLOR)
         embed.add_field(name="Nombre", value=role.name, inline=True)
         await self._send(role.guild.id, "roles", embed)
 
@@ -65,12 +65,12 @@ class Logs(commands.Cog):
             return
         if before.channel != after.channel:
             if after.channel and not before.channel:
-                embed = PremiumEmbed(title="🔊 Conectado a voz", color=config.SUCCESS_COLOR)
+                embed = PremiumEmbed(title="Conectado a voz", color=config.SUCCESS_COLOR)
                 embed.add_field(name="Usuario", value=member.mention, inline=True)
                 embed.add_field(name="Canal", value=after.channel.mention, inline=True)
                 await self._send(member.guild.id, "voice", embed)
             elif before.channel and not after.channel:
-                embed = PremiumEmbed(title="🔊 Desconectado de voz", color=config.ERROR_COLOR)
+                embed = PremiumEmbed(title="Desconectado de voz", color=config.ERROR_COLOR)
                 embed.add_field(name="Usuario", value=member.mention, inline=True)
                 embed.add_field(name="Canal", value=before.channel.mention, inline=True)
                 await self._send(member.guild.id, "voice", embed)
@@ -90,9 +90,9 @@ class Logs(commands.Cog):
                     pass
 
     # ── Comandos ─────────────────────────────────────────────────────────────
-    logs = app_commands.Group(name="logs", description="📝 Configurar logs")
+    logs = app_commands.Group(name="logs", description="Configurar logs")
 
-    @logs.command(name="setup", description="⚙️ Configurar canal de logs")
+    @logs.command(name="setup", description="Configurar canal de logs")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(module="Módulo", channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
@@ -106,7 +106,7 @@ class Logs(commands.Cog):
         opts = ["messages", "members", "moderation", "channels", "roles", "voice", "invites", "automod", "antinuke", "commands", "tickets", "reputation"]
         return [app_commands.Choice(name=m, value=m) for m in opts if current.lower() in m.lower()]
 
-    @logs.command(name="enable", description="✅ Activar módulo de logs")
+    @logs.command(name="enable", description="Activar módulo de logs")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(module="Módulo")
     @app_commands.checks.has_permissions(administrator=True)
@@ -115,7 +115,7 @@ class Logs(commands.Cog):
         await self.bot.db.toggle_log_module(interaction.guild.id, module, True)
         await interaction.followup.send(embed=success_embed("✅ Log activado", module))
 
-    @logs.command(name="disable", description="❌ Desactivar módulo de logs")
+    @logs.command(name="disable", description="Desactivar módulo de logs")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(module="Módulo")
     @app_commands.checks.has_permissions(administrator=True)
@@ -124,16 +124,16 @@ class Logs(commands.Cog):
         await self.bot.db.toggle_log_module(interaction.guild.id, module, False)
         await interaction.followup.send(embed=success_embed("❌ Log desactivado", module))
 
-    @logs.command(name="test", description="🧪 Probar logs")
+    @logs.command(name="test", description="Probar logs")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def logs_test(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        embed = PremiumEmbed(title="🧪 Test de logs", description="Si ves esto, los logs funcionan.", color=config.SUCCESS_COLOR)
+        embed = PremiumEmbed(title="Test de logs", description="Si ves esto, los logs funcionan.", color=config.SUCCESS_COLOR)
         await self._send(interaction.guild.id, "messages", embed)
         await interaction.followup.send(embed=success_embed("🧪 Test enviado"))
 
-    @logs.command(name="modules", description="📋 Ver módulos de logs activos")
+    @logs.command(name="modules", description="Ver módulos de logs activos")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def logs_modules(self, interaction: discord.Interaction):
@@ -141,7 +141,7 @@ class Logs(commands.Cog):
         channels = await self.bot.db.get_log_channels(interaction.guild.id)
         if not channels:
             return await interaction.followup.send(embed=info_embed("📝", "No hay logs configurados."))
-        embed = PremiumEmbed(title="📝 Módulos de logs", color=config.EMBED_COLOR)
+        embed = PremiumEmbed(title="Módulos de logs", color=config.EMBED_COLOR)
         for mod, ch_id in channels.items():
             ch = interaction.guild.get_channel(ch_id)
             embed.add_field(name=mod, value=ch.mention if ch else "❌", inline=False)

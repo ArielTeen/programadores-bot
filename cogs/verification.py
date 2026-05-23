@@ -61,22 +61,22 @@ class Verification(commands.Cog):
             await self.bot.db.set_verified(interaction.user.id, interaction.guild.id)
             await interaction.response.send_message(embed=success_embed("✅ Verificado!", f"{role.mention} asignado."), ephemeral=True)
 
-    verify = app_commands.Group(name="verify", description="🛂 Configurar verificación")
+    verify = app_commands.Group(name="verify", description="Configurar verificación")
 
-    @verify.command(name="panel", description="🛂 Enviar panel de verificación")
+    @verify.command(name="panel", description="Enviar panel de verificación")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
     async def verify_panel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         channel = channel or interaction.channel
         await interaction.response.defer(ephemeral=True)
-        e = PremiumEmbed(title="🛂 Verificación", description="Presiona el botón para verificar tu identidad.", color=config.COLORS["green"])
+        e = PremiumEmbed(title="Verificación", description="Presiona el botón para verificar tu identidad.", color=config.COLORS["green"])
         view = discord.ui.View()
         view.add_item(discord.ui.Button(label="✅ Verificar", style=discord.ButtonStyle.success, custom_id="verify_btn", emoji="✅"))
         await channel.send(embed=e, view=view)
         await interaction.followup.send(f"✅ Panel enviado a {channel.mention}", ephemeral=True)
 
-    @verify.command(name="setup", description="⚙️ Configurar verificación")
+    @verify.command(name="setup", description="Configurar verificación")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="Rol a asignar", captcha="Usar captcha")
     @app_commands.checks.has_permissions(administrator=True)
@@ -85,7 +85,7 @@ class Verification(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, verify_role=role.id, verify_captcha=1 if captcha else 0)
         await interaction.followup.send(embed=success_embed("🛂 Verificación configurada", f"Rol: {role.mention} | Captcha: {'✅' if captcha else '❌'}"))
 
-    @verify.command(name="enable", description="✅ Activar verificación")
+    @verify.command(name="enable", description="Activar verificación")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def verify_enable(self, interaction: discord.Interaction):
@@ -93,7 +93,7 @@ class Verification(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, verify_enabled=1)
         await interaction.followup.send(embed=success_embed("✅ Verificación activada"))
 
-    @verify.command(name="disable", description="❌ Desactivar verificación")
+    @verify.command(name="disable", description="Desactivar verificación")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def verify_disable(self, interaction: discord.Interaction):
@@ -101,7 +101,7 @@ class Verification(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, verify_enabled=0)
         await interaction.followup.send(embed=success_embed("❌ Verificación desactivada"))
 
-    @verify.command(name="role", description="🎭 Configurar rol de verificación")
+    @verify.command(name="role", description="Configurar rol de verificación")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="Rol")
     @app_commands.checks.has_permissions(administrator=True)

@@ -12,7 +12,7 @@ from core.bot import Bot
 from utils.logger import setup_logger
 
 logger = setup_logger("Main")
-setup_logger("TeenBot")
+setup_logger("Bot")
 
 # ─── Dashboard thread ────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ async def run_bot():
 
 def main():
     logger.info("=" * 50)
-    logger.info("Iniciando Teen Bot + Dashboard")
+    logger.info("Iniciando Comunidad de Programadores Bot + Dashboard")
     logger.info("=" * 50)
 
     if not config.TOKEN:

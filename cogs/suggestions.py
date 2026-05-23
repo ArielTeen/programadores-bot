@@ -13,7 +13,7 @@ class Suggestions(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="suggest", description="💡 Enviar una sugerencia")
+    @app_commands.command(name="suggest", description="Enviar una sugerencia")
     @app_commands.describe(sugerencia="Tu sugerencia")
     async def suggest(self, interaction: discord.Interaction, sugerencia: str):
         await interaction.response.defer(ephemeral=True)
@@ -24,9 +24,9 @@ class Suggestions(commands.Cog):
         ch = interaction.guild.get_channel(ch_id)
         if not ch:
             return await interaction.followup.send(embed=error_embed("❌", "Canal no encontrado."), ephemeral=True)
-        e = PremiumEmbed(title="💡 Sugerencia", description=sugerencia, color=config.COLORS["blue"])
+        e = PremiumEmbed(title="Sugerencia", description=sugerencia, color=config.COLORS["blue"])
         e.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="Estado", value="⏳ Pendiente")
+        e.add_field(name="Estado", value="Pendiente")
         e.set_footer(text=f"ID: {interaction.user.id}")
         msg = await ch.send(embed=e)
         await msg.add_reaction("✅")
@@ -34,9 +34,9 @@ class Suggestions(commands.Cog):
         await self.bot.db.create_suggestion(interaction.guild.id, msg.id, interaction.user.id, sugerencia)
         await interaction.followup.send(embed=success_embed("✅ Sugerencia enviada", f"{ch.mention}"), ephemeral=True)
 
-    suggestions = app_commands.Group(name="suggestions", description="💡 Configurar sugerencias (staff)")
+    suggestions = app_commands.Group(name="suggestions", description="Configurar sugerencias (staff)")
 
-    @suggestions.command(name="setup", description="⚙️ Configurar canal de sugerencias")
+    @suggestions.command(name="setup", description="Configurar canal de sugerencias")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
@@ -45,7 +45,7 @@ class Suggestions(commands.Cog):
         await self.bot.db.update_guild(interaction.guild.id, suggested_channel=channel.id)
         await interaction.followup.send(embed=success_embed("💡 Canal de sugerencias", channel.mention))
 
-    @suggestions.command(name="accept", description="✅ Aceptar sugerencia")
+    @suggestions.command(name="accept", description="Aceptar sugerencia")
     @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(message_id="ID del mensaje", comment="Comentario")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -60,9 +60,9 @@ class Suggestions(commands.Cog):
                     msg = await interaction.channel.fetch_message(mid)
                     e = msg.embeds[0]
                     e.color = config.SUCCESS_COLOR
-                    e.set_field_at(0, name="Estado", value="✅ Aceptada")
+                    e.set_field_at(0, name="Estado", value="Aceptada")
                     if comment:
-                        e.add_field(name="💬 Comentario", value=comment, inline=False)
+                        e.add_field(name="Comentario", value=comment, inline=False)
                     await msg.edit(embed=e)
                 except:
                     pass
@@ -71,7 +71,7 @@ class Suggestions(commands.Cog):
         except:
             await interaction.followup.send(embed=error_embed("❌", "Error."))
 
-    @suggestions.command(name="deny", description="❌ Rechazar sugerencia")
+    @suggestions.command(name="deny", description="Rechazar sugerencia")
     @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(message_id="ID del mensaje", comment="Comentario")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -85,9 +85,9 @@ class Suggestions(commands.Cog):
                     msg = await interaction.channel.fetch_message(mid)
                     e = msg.embeds[0]
                     e.color = config.ERROR_COLOR
-                    e.set_field_at(0, name="Estado", value="❌ Rechazada")
+                    e.set_field_at(0, name="Estado", value="Rechazada")
                     if comment:
-                        e.add_field(name="💬 Comentario", value=comment, inline=False)
+                        e.add_field(name="Comentario", value=comment, inline=False)
                     await msg.edit(embed=e)
                 except:
                     pass
@@ -96,7 +96,7 @@ class Suggestions(commands.Cog):
         except:
             await interaction.followup.send(embed=error_embed("❌", "Error."))
 
-    @suggestions.command(name="comment", description="💬 Comentar sugerencia")
+    @suggestions.command(name="comment", description="Comentar sugerencia")
     @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(message_id="ID del mensaje", comment="Comentario")
     @app_commands.checks.has_permissions(manage_messages=True)
@@ -109,7 +109,7 @@ class Suggestions(commands.Cog):
                 try:
                     msg = await interaction.channel.fetch_message(mid)
                     e = msg.embeds[0]
-                    e.add_field(name="💬 Comentario del staff", value=comment, inline=False)
+                    e.add_field(name="Comentario del staff", value=comment, inline=False)
                     await msg.edit(embed=e)
                 except:
                     pass
