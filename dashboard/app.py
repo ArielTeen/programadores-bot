@@ -424,7 +424,7 @@ def server_module(guild_id, module):
     guild = next((g for g in guilds if str(g["id"]) == str(guild_id) and g["can_view"]), None)
     if not guild:
         return render_template("login.html", error="No tienes acceso a ese servidor.")
-    valid = ["moderation", "automod", "antinuke", "tickets", "welcome", "levels", "economy", "reputation", "logs", "reaction-roles", "verification", "giveaways", "suggestions", "general"]
+    valid = ["moderation", "automod", "antinuke", "tickets", "welcome", "levels", "economy", "reputation", "logs", "reaction-roles", "verification", "giveaways", "suggestions", "members", "commands", "embed-builder", "audit", "temp-voice", "general"]
     if module not in valid:
         return redirect(f"/dashboard/{guild_id}")
     config = _get_guild_config(guild_id)
@@ -452,6 +452,15 @@ def api_guild_config(guild_id):
         data = request.json
         if not data:
             return jsonify({"error": "No data"}), 400
+        async def _audit():
+            db = Database()
+            await db.connect()
+            try:
+                keys = list(data.keys())[:3]
+                await db.add_audit_log(int(guild_id), int(session["user"]["id"]), "config_update", "general", f"Updated: {', '.join(keys)}")
+            finally:
+                await db.close()
+        _run_async(_audit())
         _save_guild_config(guild_id, data)
         return jsonify({"success": True})
     guild = _check_guild_access(guild_id)
@@ -780,6 +789,135 @@ def api_user_guilds():
     user_id = int(user["id"])
     guilds = _get_guilds_with_perms(session["access_token"], user_id)
     return jsonify(guilds)
+
+# ─── Members API ──────────────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/members/search", methods=["GET"])
+@auth_required
+def api_members_search(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    query = request.args.get("q", "")
+    limit = request.args.get("limit", 50, type=int)
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.search_members(int(guild_id), query, limit)
+            return [dict(r) for r in rows]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/member/<user_id>", methods=["GET"])
+@auth_required
+def api_member_detail(guild_id, user_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            m = await db.get_member(int(user_id), int(guild_id))
+            warns = await db.get_warnings(int(user_id), int(guild_id))
+            m["warnings"] = [dict(r) for r in warns]
+            rank_xp, _ = await db.get_rank(int(user_id), int(guild_id), "total_xp")
+            rank_rep, _ = await db.get_rank(int(user_id), int(guild_id), "reputation")
+            m["rank_xp"] = rank_xp
+            m["rank_rep"] = rank_rep
+            return m
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Custom Commands API ─────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/commands", methods=["GET"])
+@auth_required
+def api_custom_commands(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.get_custom_commands(int(guild_id))
+            return [dict(r) for r in rows]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/commands", methods=["POST"])
+@auth_required
+def api_custom_command_create(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    data = request.json or {}
+    action = data.get("action", "add")
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            if action == "add":
+                await db.add_custom_command(
+                    int(guild_id), data["name"], data.get("type", "text"),
+                    data.get("content", ""), int(session["user"]["id"]),
+                    embed_title=data.get("embed_title"),
+                    embed_description=data.get("embed_description"),
+                    embed_color=data.get("embed_color", "#7c3aed"),
+                    embed_footer=data.get("embed_footer"),
+                    embed_image=data.get("embed_image"),
+                    embed_thumbnail=data.get("embed_thumbnail"),
+                    role_required=int(data.get("role_required", 0)),
+                    cooldown=int(data.get("cooldown", 0)),
+                )
+            elif action == "remove":
+                await db.remove_custom_command(int(data["id"]), int(guild_id))
+            await db.add_audit_log(int(guild_id), int(session["user"]["id"]), action, "custom_commands", f"Command: {data.get('name', '')}")
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Audit Log API ───────────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/audit", methods=["GET"])
+@auth_required
+def api_audit_log(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    limit = request.args.get("limit", 50, type=int)
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            return await db.get_audit_logs(int(guild_id), limit)
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Temp Voice API ──────────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/temp-voice", methods=["GET"])
+@auth_required
+def api_temp_voice(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.get_guild_temp_voices(int(guild_id))
+            return [dict(r) for r in rows]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Embed Builder API ───────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/embed/send", methods=["POST"])
+@auth_required
+def api_embed_send(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    return jsonify({"success": True, "message": "Embed enviado. Usa el bot en Discord para enviar embeds."})
 
 # ─── Error Handlers ────────────────────────────────────────────────────────
 

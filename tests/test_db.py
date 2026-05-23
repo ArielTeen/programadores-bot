@@ -206,6 +206,92 @@ async def test_leaderboard():
     await db.close()
     os.unlink(tmp.name)
 
+
+@pytest.mark.asyncio
+async def test_custom_commands():
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db = Database(tmp.name)
+    await db.connect()
+
+    await db.add_custom_command(222, "hola", "text", "Hola mundo!", 111)
+    await db.add_custom_command(222, "info", "embed", "", 111, embed_title="Info", embed_description="Server info")
+    cmds = await db.get_custom_commands(222)
+    assert len(cmds) == 2
+    assert cmds[0]["name"] == "hola"
+
+    cmd = await db.get_custom_command(222, "hola")
+    assert cmd is not None
+    assert cmd["content"] == "Hola mundo!"
+
+    await db.remove_custom_command(cmds[0]["id"], 222)
+    cmds_after = await db.get_custom_commands(222)
+    assert len(cmds_after) == 1
+
+    await db.close()
+    os.unlink(tmp.name)
+
+
+@pytest.mark.asyncio
+async def test_temp_voice():
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db = Database(tmp.name)
+    await db.connect()
+
+    await db.create_temp_voice(222, 555, 111, "Mi canal")
+    voices = await db.get_guild_temp_voices(222)
+    assert len(voices) == 1
+    assert voices[0]["name"] == "Mi canal"
+
+    tv = await db.get_user_temp_voice(111, 222)
+    assert tv is not None
+    assert tv["channel_id"] == 555
+
+    await db.update_temp_voice(555, name="Nuevo nombre")
+    updated = await db.get_temp_voice(555)
+    assert updated["name"] == "Nuevo nombre"
+
+    await db.remove_temp_voice(555)
+    voices_after = await db.get_guild_temp_voices(222)
+    assert len(voices_after) == 0
+
+    await db.close()
+    os.unlink(tmp.name)
+
+
+@pytest.mark.asyncio
+async def test_audit_log():
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db = Database(tmp.name)
+    await db.connect()
+
+    await db.add_audit_log(222, 111, "config_update", "general", "Updated prefix")
+    await db.add_audit_log(222, 111, "warn_add", "moderation", "Warned user 333")
+    logs = await db.get_audit_logs(222)
+    assert len(logs) == 2
+    assert logs[0]["action"] == "warn_add"
+    assert logs[0]["module"] == "moderation"
+
+    await db.close()
+    os.unlink(tmp.name)
+
+
+@pytest.mark.asyncio
+async def test_member_search():
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db = Database(tmp.name)
+    await db.connect()
+
+    await db.get_member(111, 222)
+    await db.get_member(333, 222)
+    await db.get_member(555, 222)
+
+    all_members = await db.search_members(222, "", 10)
+    assert len(all_members) == 3
+
+    await db.close()
+    os.unlink(tmp.name)
+
+
 @pytest.mark.asyncio
 async def test_rep_system():
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)

@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS guild_config (
     rep_max_per_user INTEGER DEFAULT 100,
     rep_min_level INTEGER DEFAULT 0,
     rep_staff_only INTEGER DEFAULT 0,
+    temp_voice_enabled INTEGER DEFAULT 0,
+    temp_voice_category INTEGER,
+    temp_voice_channel INTEGER,
+    custom_commands_enabled INTEGER DEFAULT 1,
     log_config TEXT DEFAULT '{}',
     staff_roles TEXT DEFAULT '[]',
     automod_enabled INTEGER DEFAULT 0,
@@ -331,6 +335,52 @@ CREATE TABLE IF NOT EXISTS rep_roles (
 )
 """
 
+CUSTOM_COMMANDS = """
+CREATE TABLE IF NOT EXISTS custom_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id INTEGER,
+    name TEXT,
+    type TEXT DEFAULT 'text',
+    content TEXT,
+    embed_title TEXT,
+    embed_description TEXT,
+    embed_color TEXT,
+    embed_footer TEXT,
+    embed_image TEXT,
+    embed_thumbnail TEXT,
+    role_required INTEGER DEFAULT 0,
+    cooldown INTEGER DEFAULT 0,
+    uses INTEGER DEFAULT 0,
+    created_at REAL,
+    created_by INTEGER
+)
+"""
+
+TEMP_VOICE = """
+CREATE TABLE IF NOT EXISTS temp_voice (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id INTEGER,
+    channel_id INTEGER,
+    owner_id INTEGER,
+    created_at REAL,
+    name TEXT,
+    user_limit INTEGER DEFAULT 0,
+    bitrate INTEGER DEFAULT 64000
+)
+"""
+
+DASHBOARD_AUDIT = """
+CREATE TABLE IF NOT EXISTS dashboard_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id INTEGER,
+    user_id INTEGER,
+    action TEXT,
+    module TEXT,
+    details TEXT,
+    timestamp REAL
+)
+"""
+
 ALL_TABLES = [
     GUILD_CONFIG, MEMBERS, WARNINGS, CASES,
     TICKETS, TICKET_MESSAGES,
@@ -342,4 +392,5 @@ ALL_TABLES = [
     ANTINUKE_TRUSTED, ANTINUKE_LOGS,
     LOG_CONFIG, DASHBOARD_SESSIONS,
     REP_HISTORY, REP_ROLES,
+    CUSTOM_COMMANDS, TEMP_VOICE, DASHBOARD_AUDIT,
 ]

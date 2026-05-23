@@ -578,3 +578,83 @@ class Database:
             if r["user_id"] == user_id:
                 return i, r
         return 0, None
+
+    # ─── Custom Commands ───────────────────────────────────────────────────
+
+    async def add_custom_command(self, guild_id: int, name: str, ctype: str, content: str, created_by: int, **kwargs):
+        await self.execute(
+            "INSERT INTO custom_commands (guild_id, name, type, content, embed_title, embed_description, embed_color, embed_footer, embed_image, embed_thumbnail, role_required, cooldown, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            guild_id, name.lower(), ctype, content,
+            kwargs.get("embed_title", ""), kwargs.get("embed_description", ""),
+            kwargs.get("embed_color", "#7c3aed"), kwargs.get("embed_footer", ""),
+            kwargs.get("embed_image", ""), kwargs.get("embed_thumbnail", ""),
+            kwargs.get("role_required", 0), kwargs.get("cooldown", 0),
+            time.time(), created_by,
+        )
+
+    async def remove_custom_command(self, cmd_id: int, guild_id: int):
+        await self.execute("DELETE FROM custom_commands WHERE id = ? AND guild_id = ?", cmd_id, guild_id)
+
+    async def get_custom_commands(self, guild_id: int):
+        return await self.fetchall("SELECT * FROM custom_commands WHERE guild_id = ? ORDER BY name ASC", guild_id)
+
+    async def get_custom_command(self, guild_id: int, name: str):
+        return await self.fetchone("SELECT * FROM custom_commands WHERE guild_id = ? AND name = ?", guild_id, name.lower())
+
+    async def increment_cmd_uses(self, cmd_id: int):
+        await self.execute("UPDATE custom_commands SET uses = uses + 1 WHERE id = ?", cmd_id)
+
+    # ─── Temp Voice ─────────────────────────────────────────────────────────
+
+    async def create_temp_voice(self, guild_id: int, channel_id: int, owner_id: int, name: str = ""):
+        await self.execute(
+            "INSERT INTO temp_voice (guild_id, channel_id, owner_id, created_at, name) VALUES (?, ?, ?, ?, ?)",
+            guild_id, channel_id, owner_id, time.time(), name,
+        )
+
+    async def remove_temp_voice(self, channel_id: int):
+        await self.execute("DELETE FROM temp_voice WHERE channel_id = ?", channel_id)
+
+    async def get_temp_voice(self, channel_id: int):
+        return await self.fetchone("SELECT * FROM temp_voice WHERE channel_id = ?", channel_id)
+
+    async def get_user_temp_voice(self, user_id: int, guild_id: int):
+        return await self.fetchone("SELECT * FROM temp_voice WHERE owner_id = ? AND guild_id = ?", user_id, guild_id)
+
+    async def update_temp_voice(self, channel_id: int, **kwargs):
+        if not kwargs: return
+        sets = ", ".join(f"{k} = ?" for k in kwargs)
+        vals = list(kwargs.values()) + [channel_id]
+        await self.execute(f"UPDATE temp_voice SET {sets} WHERE channel_id = ?", *vals)
+
+    async def get_guild_temp_voices(self, guild_id: int):
+        return await self.fetchall("SELECT * FROM temp_voice WHERE guild_id = ?", guild_id)
+
+    # ─── Dashboard Audit ────────────────────────────────────────────────────
+
+    async def add_audit_log(self, guild_id: int, user_id: int, action: str, module: str, details: str = ""):
+        await self.execute(
+            "INSERT INTO dashboard_audit (guild_id, user_id, action, module, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+            guild_id, user_id, action, module, details, time.time(),
+        )
+
+    async def get_audit_logs(self, guild_id: int, limit: int = 50):
+        rows = await self.fetchall(
+            "SELECT * FROM dashboard_audit WHERE guild_id = ? ORDER BY timestamp DESC LIMIT ?",
+            guild_id, limit,
+        )
+        return [dict(r) for r in rows]
+
+    # ─── Member Search ──────────────────────────────────────────────────────
+
+    async def search_members(self, guild_id: int, query: str = "", limit: int = 50):
+        if query:
+            q = f"%{query}%"
+            return await self.fetchall(
+                "SELECT * FROM members WHERE guild_id = ? AND (user_id LIKE ?) ORDER BY total_xp DESC LIMIT ?",
+                guild_id, q, limit,
+            )
+        return await self.fetchall(
+            "SELECT * FROM members WHERE guild_id = ? ORDER BY total_xp DESC LIMIT ?",
+            guild_id, limit,
+        )

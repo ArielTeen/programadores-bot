@@ -96,6 +96,31 @@
         <div class="module-info"><h5>Sugerencias</h5><p>Sistema de sugerencias con votos y aprobacion</p></div>
         <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
     </a>
+    <a href="/dashboard/{{ guild_id }}/members" class="module-card-premium tilt-card card-blue">
+        <div class="module-icon-box"><i class="bi bi-people"></i></div>
+        <div class="module-info"><h5>Miembros</h5><p>Gestion de miembros, warns, reputacion y balances</p></div>
+        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    </a>
+    <a href="/dashboard/{{ guild_id }}/commands" class="module-card-premium tilt-card card-cyan">
+        <div class="module-icon-box"><i class="bi bi-terminal"></i></div>
+        <div class="module-info"><h5>Comandos Personalizados</h5><p>Crea comandos de texto y embed desde el panel</p></div>
+        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    </a>
+    <a href="/dashboard/{{ guild_id }}/embed-builder" class="module-card-premium tilt-card card-pink">
+        <div class="module-icon-box"><i class="bi bi-file-earmark-richtext"></i></div>
+        <div class="module-info"><h5>Embed Builder</h5><p>Crea y envia embeds personalizados a tu servidor</p></div>
+        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    </a>
+    <a href="/dashboard/{{ guild_id }}/temp-voice" class="module-card-premium tilt-card card-teal">
+        <div class="module-icon-box"><i class="bi bi-mic"></i></div>
+        <div class="module-info"><h5>Canales de Voz Temp</h5><p>Canales de voz temporales con control de usuarios</p></div>
+        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    </a>
+    <a href="/dashboard/{{ guild_id }}/audit" class="module-card-premium tilt-card card-slate">
+        <div class="module-icon-box"><i class="bi bi-clock-history"></i></div>
+        <div class="module-info"><h5>Auditoria</h5><p>Historial de cambios realizados desde el dashboard</p></div>
+        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    </a>
     <a href="/dashboard/{{ guild_id }}/general" class="module-card-premium tilt-card card-white">
         <div class="module-icon-box"><i class="bi bi-gear-wide-connected"></i></div>
         <div class="module-info"><h5>Ajustes</h5><p>Prefijo, idioma, exportar e importar configuracion</p></div>
@@ -108,7 +133,7 @@
 <div class="module-nav-bar animate-fade-in-up">
     <a href="/dashboard/{{ guild_id }}" class="back-btn"><i class="bi bi-arrow-left"></i> Volver al panel</a>
     <span class="current-module-label">
-        <i class="bi {% if module == 'overview' %}bi-house-gear{% elif module == 'moderation' %}bi-shield-check{% elif module == 'automod' %}bi-robot{% elif module == 'antinuke' %}bi-shield-exclamation{% elif module == 'tickets' %}bi-ticket-perforated{% elif module == 'welcome' %}bi-hand-wave{% elif module == 'levels' %}bi-graph-up-arrow{% elif module == 'economy' %}bi-coin{% elif module == 'reputation' %}bi-star{% elif module == 'logs' %}bi-journal-text{% elif module == 'reaction-roles' %}bi-emoji-smile{% elif module == 'verification' %}bi-shield-lock{% elif module == 'giveaways' %}bi-gift{% elif module == 'suggestions' %}bi-lightbulb{% elif module == 'general' %}bi-gear-wide-connected{% endif %}"></i>
+        <i class="bi {% if module == 'overview' %}bi-house-gear{% elif module == 'moderation' %}bi-shield-check{% elif module == 'automod' %}bi-robot{% elif module == 'antinuke' %}bi-shield-exclamation{% elif module == 'tickets' %}bi-ticket-perforated{% elif module == 'welcome' %}bi-hand-wave{% elif module == 'levels' %}bi-graph-up-arrow{% elif module == 'economy' %}bi-coin{% elif module == 'reputation' %}bi-star{% elif module == 'logs' %}bi-journal-text{% elif module == 'reaction-roles' %}bi-emoji-smile{% elif module == 'verification' %}bi-shield-lock{% elif module == 'giveaways' %}bi-gift{% elif module == 'suggestions' %}bi-lightbulb{% elif module == 'members' %}bi-people{% elif module == 'commands' %}bi-terminal{% elif module == 'embed-builder' %}bi-file-earmark-richtext{% elif module == 'temp-voice' %}bi-mic{% elif module == 'audit' %}bi-clock-history{% elif module == 'general' %}bi-gear-wide-connected{% endif %}"></i>
         {{ module|replace('-', ' ')|capitalize }}
     </span>
 </div>
@@ -555,6 +580,144 @@
 </div>
 </div>
 
+{% elif module == 'members' %}
+<div id="section-members">
+<div class="page-header"><h1><i class="bi bi-people"></i> Miembros</h1><p>Gestiona miembros, warns, reputacion y economia desde el panel.</p></div>
+<div class="config-card">
+    <div class="config-card-title"><i class="bi bi-search" style="color:var(--accent);"></i> Buscar Miembro</div>
+    <div style="display:flex;gap:8px;">
+        <input type="text" class="form-input mem-search" placeholder="ID del usuario" style="flex:1;">
+        <button class="btn-accent btn-accent-sm" onclick="searchMember()"><i class="bi bi-search"></i> Buscar</button>
+    </div>
+</div>
+<div id="mem-result" style="display:none;">
+    <div class="config-grid">
+        <div class="config-card">
+            <div class="config-card-title"><i class="bi bi-person-badge" style="color:var(--accent);"></i> Informacion</div>
+            <div id="mem-info"></div>
+        </div>
+        <div class="config-card">
+            <div class="config-card-title"><i class="bi bi-shield-check" style="color:var(--yellow);"></i> Warns</div>
+            <div id="mem-warns"></div>
+            <div style="display:flex;gap:6px;margin-top:12px;">
+                <input type="text" class="form-input mem-warn-reason" placeholder="Razon del warn" style="flex:1;">
+                <button class="btn-accent btn-accent-sm" onclick="addMemberWarn()"><i class="bi bi-exclamation-triangle"></i> Warn</button>
+            </div>
+            <button class="btn-ghost btn-accent-sm mt-2" onclick="clearMemberWarns()"><i class="bi bi-trash"></i> Limpiar warns</button>
+        </div>
+        <div class="config-card">
+            <div class="config-card-title"><i class="bi bi-star" style="color:var(--purple);"></i> Reputacion</div>
+            <div style="display:flex;gap:6px;">
+                <input type="number" class="form-input mem-rep-amount" placeholder="Cantidad" style="flex:1;" value="1">
+                <button class="btn-success btn-accent-sm" onclick="adjustRep('add')"><i class="bi bi-plus"></i></button>
+                <button class="btn-danger btn-accent-sm" onclick="adjustRep('remove')"><i class="bi bi-dash"></i></button>
+                <button class="btn-ghost btn-accent-sm" onclick="adjustRep('reset')"><i class="bi bi-arrow-counterclockwise"></i></button>
+            </div>
+        </div>
+        <div class="config-card">
+            <div class="config-card-title"><i class="bi bi-coin" style="color:var(--yellow);"></i> Economia</div>
+            <div style="display:flex;gap:6px;">
+                <input type="number" class="form-input mem-bal-amount" placeholder="Cantidad" style="flex:1;" value="100">
+                <button class="btn-success btn-accent-sm" onclick="adjustBalance('set')"><i class="bi bi-check"></i> Set</button>
+                <button class="btn-accent btn-accent-sm" onclick="adjustBalance('add')"><i class="bi bi-plus"></i></button>
+                <button class="btn-danger btn-accent-sm" onclick="adjustBalance('remove')"><i class="bi bi-dash"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+{% elif module == 'commands' %}
+<div id="section-commands">
+<div class="page-header"><h1><i class="bi bi-terminal"></i> Comandos Personalizados</h1><p>Crea comandos personalizados de texto o embed desde el dashboard.</p></div>
+<div class="config-grid">
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-plus-circle" style="color:var(--accent);"></i> Nuevo Comando</div>
+        <div class="form-group"><label class="form-label">Nombre del comando (sin prefijo)</label><input type="text" class="form-input cmd-name" placeholder="ej: hola"></div>
+        <div class="form-group"><label class="form-label">Tipo</label><select class="form-select cmd-type" onchange="toggleCmdType()"><option value="text">Texto</option><option value="embed">Embed</option></select></div>
+        <div class="form-group" id="cmd-text-group"><label class="form-label">Contenido</label><textarea class="form-textarea cmd-content" rows="3" placeholder="Texto que respondera el bot"></textarea></div>
+        <div id="cmd-embed-group" style="display:none;">
+            <div class="form-group"><label class="form-label">Titulo del embed</label><input type="text" class="form-input cmd-embed-title" placeholder="Titulo"></div>
+            <div class="form-group"><label class="form-label">Descripcion</label><textarea class="form-textarea cmd-embed-desc" rows="3" placeholder="Descripcion del embed"></textarea></div>
+            <div class="form-group"><label class="form-label">Color (hex)</label><input type="text" class="form-input cmd-embed-color" placeholder="#7c3aed" value="#7c3aed"></div>
+            <div class="form-group"><label class="form-label">Footer</label><input type="text" class="form-input cmd-embed-footer" placeholder="Footer text"></div>
+            <div class="form-group"><label class="form-label">URL de imagen</label><input type="text" class="form-input cmd-embed-image" placeholder="https://..."></div>
+        </div>
+        <button class="btn-accent mt-2" onclick="addCustomCommand()"><i class="bi bi-save"></i> Crear Comando</button>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-list" style="color:var(--cyan);"></i> Comandos Existentes</div>
+        <div id="cmd-list"></div>
+    </div>
+</div>
+</div>
+
+{% elif module == 'embed-builder' %}
+<div id="section-embed-builder">
+<div class="page-header"><h1><i class="bi bi-file-earmark-richtext"></i> Embed Builder</h1><p>Crea y envia embeds personalizados a cualquier canal de Discord.</p></div>
+<div class="config-grid">
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-pencil" style="color:var(--accent);"></i> Editor de Embed</div>
+        <div class="form-group"><label class="form-label">Titulo</label><input type="text" class="form-input eb-title" placeholder="Titulo del embed" id="eb-title"></div>
+        <div class="form-group"><label class="form-label">Descripcion</label><textarea class="form-textarea eb-desc" rows="4" placeholder="Descripcion del embed" id="eb-desc"></textarea></div>
+        <div class="form-group"><label class="form-label">Color</label><input type="color" class="form-input eb-color" id="eb-color" value="#7c3aed" style="height:40px;padding:4px;"></div>
+        <div class="form-group"><label class="form-label">Footer</label><input type="text" class="form-input eb-footer" placeholder="Texto del footer" id="eb-footer"></div>
+        <div class="form-group"><label class="form-label">URL de imagen grande</label><input type="text" class="form-input eb-image" placeholder="https://..." id="eb-image"></div>
+        <div class="form-group"><label class="form-label">URL de thumbnail</label><input type="text" class="form-input eb-thumb" placeholder="https://..." id="eb-thumb"></div>
+        <div class="form-group"><label class="form-label">ID del canal destino</label><input type="text" class="form-input eb-channel" placeholder="ID del canal" id="eb-channel"></div>
+        <button class="btn-accent" onclick="previewEmbed()" style="margin-right:8px;"><i class="bi bi-eye"></i> Vista Previa</button>
+        <button class="btn-success" onclick="sendEmbed()"><i class="bi bi-send"></i> Enviar a Discord</button>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-eye" style="color:var(--cyan);"></i> Vista Previa</div>
+        <div id="embed-preview" style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:1rem;border-left:4px solid var(--accent);">
+            <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);" id="preview-title">Titulo del embed</div>
+            <div style="font-size:.88rem;color:var(--text-secondary);margin-top:8px;" id="preview-desc">Descripcion del embed aparecera aqui...</div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:12px;" id="preview-footer">Comunidad de Programadores</div>
+        </div>
+        <div style="margin-top:8px;font-size:.75rem;color:var(--text-muted);" id="preview-stats"></div>
+    </div>
+</div>
+</div>
+
+{% elif module == 'temp-voice' %}
+<div id="section-temp-voice">
+<div class="page-header"><h1><i class="bi bi-mic"></i> Canales de Voz Temporales</h1><p>Configura canales de voz que los usuarios pueden crear y gestionar.</p></div>
+<div class="config-grid">
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-toggle-on" style="color:var(--accent);"></i> Estado</div>
+        <div class="mb-3" style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:.9rem;">Sistema activo</span>
+            <div class="form-toggle {% if config.temp_voice_enabled %}active{% endif %}" onclick="this.classList.toggle('active')" id="tv-enabled"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Canal para crear voz temporal</label><input type="text" class="form-input tv-channel" placeholder="ID del canal" value="{{ config.temp_voice_channel or '' }}"></div>
+        <div class="form-group"><label class="form-label">Categoria donde crear los canales</label><input type="text" class="form-input tv-category" placeholder="ID de categoria" value="{{ config.temp_voice_category or '' }}"></div>
+        <button class="btn-accent btn-accent-sm" onclick="saveField({temp_voice_enabled: toggleVal('tv-enabled'), temp_voice_channel: getInput('.tv-channel'), temp_voice_category: getInput('.tv-category')})"><i class="bi bi-check-circle"></i> Guardar</button>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-list" style="color:var(--cyan);"></i> Canales Activos</div>
+        <div id="tv-list"></div>
+    </div>
+</div>
+</div>
+
+{% elif module == 'audit' %}
+<div id="section-audit">
+<div class="page-header"><h1><i class="bi bi-clock-history"></i> Auditoria del Dashboard</h1><p>Registro de todos los cambios realizados desde el panel de control.</p></div>
+<div class="glass-card p-4">
+    <div class="card-header-custom">
+        <h5><i class="bi bi-list-check" style="color:var(--accent);"></i> Historial de Cambios</h5>
+        <button class="btn-ghost btn-accent-sm" onclick="loadAuditLog()"><i class="bi bi-arrow-repeat"></i> Recargar</button>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table-premium">
+            <thead><tr><th>Usuario</th><th>Accion</th><th>Modulo</th><th>Detalles</th><th>Fecha</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+        </table>
+    </div>
+</div>
+</div>
+
 {% elif module == 'general' %}
 <div id="section-general">
 <div class="page-header"><h1><i class="bi bi-gear-wide-connected"></i> Ajustes Generales</h1><p>Configuracion global del bot en este servidor.</p></div>
@@ -929,6 +1092,224 @@ function importConfig(input) {
     input.value = '';
 }
 
+// ─── Members Manager ────────────────────────────────────────────────
+let currentMemberId = null;
+
+function searchMember() {
+    const q = document.querySelector('.mem-search')?.value.trim();
+    if (!q) return showToast('', 'Ingresa un ID de usuario', 'warning');
+    fetch(`/api/guild/${GUILD_ID}/member/${q}`)
+    .then(r => r.json())
+    .then(m => {
+        if (!m || m.error) return showToast('', 'Miembro no encontrado', 'error');
+        currentMemberId = m.user_id;
+        document.getElementById('mem-result').style.display = 'block';
+        document.getElementById('mem-info').innerHTML = `
+            <div><strong>ID:</strong> <code>${m.user_id}</code></div>
+            <div><strong>Nivel:</strong> ${m.level || 0}</div>
+            <div><strong>XP Total:</strong> ${(m.total_xp || 0).toLocaleString()}</div>
+            <div><strong>Reputacion:</strong> ${m.reputation || 0} <span style="font-size:.75rem;color:var(--text-muted);">(#${m.rank_rep || '-'} en ranking)</span></div>
+            <div><strong>Balance:</strong> <span style="color:var(--yellow);"><i class="bi bi-cash-coin"></i> ${(m.balance || 0).toLocaleString()}</span></div>
+            <div><strong>Warns:</strong> ${m.warns || 0}</div>
+        `;
+        const warnsDiv = document.getElementById('mem-warns');
+        const warns = m.warnings || [];
+        if (warns.length === 0) {
+            warnsDiv.innerHTML = '<p style="font-size:.85rem;color:var(--text-muted);">Sin warns</p>';
+        } else {
+            warnsDiv.innerHTML = warns.map(w =>
+                `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:4px;">
+                    <span style="font-size:.8rem;">${w.reason || 'Sin motivo'}</span>
+                    <button class="btn-icon danger" onclick="deleteWarn(${w.id})" style="width:28px;height:28px;font-size:.7rem;"><i class="bi bi-x"></i></button>
+                </div>`
+            ).join('');
+        }
+    }).catch(() => showToast('', 'Error al buscar miembro', 'error'));
+}
+
+function addMemberWarn() {
+    if (!currentMemberId) return;
+    const reason = document.querySelector('.mem-warn-reason')?.value || 'Sin motivo';
+    fetch(`/api/guild/${GUILD_ID}/warn`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: currentMemberId, reason})
+    }).then(r => r.json()).then(d => {
+        if (d.success) { showToast('', 'Warn agregado', 'success'); searchMember(); }
+    });
+}
+
+function deleteWarn(id) {
+    if (!confirm('Eliminar warn?')) return;
+    fetch(`/api/guild/${GUILD_ID}/warn/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(d => { if (d.success) { showToast('', 'Warn eliminado', 'success'); searchMember(); }});
+}
+
+function clearMemberWarns() {
+    if (!currentMemberId || !confirm('Limpiar todos los warns?')) return;
+    fetch(`/api/guild/${GUILD_ID}/warns/clear`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: currentMemberId})
+    }).then(r => r.json()).then(d => { if (d.success) { showToast('', 'Warns limpiados', 'success'); searchMember(); }});
+}
+
+function adjustRep(action) {
+    if (!currentMemberId) return;
+    const amount = parseInt(document.querySelector('.mem-rep-amount')?.value) || 1;
+    fetch(`/api/guild/${GUILD_ID}/rep/manage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action, user_id: currentMemberId, amount})
+    }).then(r => r.json()).then(d => { if (d.success) { showToast('', `Rep ${action === 'reset' ? 'reset' : 'ajustada'}`, 'success'); searchMember(); }});
+}
+
+function adjustBalance(action) {
+    if (!currentMemberId) return;
+    const amount = parseInt(document.querySelector('.mem-bal-amount')?.value) || 0;
+    fetch(`/api/guild/${GUILD_ID}/rep/manage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: action === 'set' ? 'set' : action === 'add' ? 'add' : 'remove', field: 'balance', user_id: currentMemberId, amount})
+    }).then(r => r.json()).then(d => { if (d.success) { showToast('', 'Balance actualizado', 'success'); searchMember(); }});
+}
+
+// ─── Custom Commands ────────────────────────────────────────────────
+function toggleCmdType() {
+    const type = document.querySelector('.cmd-type')?.value;
+    document.getElementById('cmd-text-group').style.display = type === 'text' ? 'block' : 'none';
+    document.getElementById('cmd-embed-group').style.display = type === 'embed' ? 'block' : 'none';
+}
+
+function loadCustomCommands() {
+    const container = document.getElementById('cmd-list');
+    if (!container) return;
+    fetch(`/api/guild/${GUILD_ID}/commands`)
+    .then(r => r.json()).then(cmds => {
+        container.innerHTML = '';
+        if (!cmds || cmds.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:.85rem;">Sin comandos personalizados</p></div>';
+            return;
+        }
+        cmds.forEach(c => {
+            const badge = c.type === 'embed' ? '<span class="badge-premium purple">Embed</span>' : '<span class="badge-premium blue">Texto</span>';
+            container.innerHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:6px;">
+                <div><strong>/${c.name}</strong> ${badge}<br><span style="font-size:.75rem;color:var(--text-muted);">Usos: ${c.uses || 0}</span></div>
+                <button class="btn-icon danger" onclick="removeCommand(${c.id})"><i class="bi bi-trash"></i></button>
+            </div>`;
+        });
+    });
+}
+
+function addCustomCommand() {
+    const name = document.querySelector('.cmd-name')?.value?.trim().toLowerCase();
+    const type = document.querySelector('.cmd-type')?.value;
+    const content = document.querySelector('.cmd-content')?.value;
+    if (!name) return showToast('', 'Ingresa un nombre para el comando', 'warning');
+    const data = {action: 'add', name, type, content};
+    if (type === 'embed') {
+        data.embed_title = document.querySelector('.cmd-embed-title')?.value;
+        data.embed_description = document.querySelector('.cmd-embed-desc')?.value;
+        data.embed_color = document.querySelector('.cmd-embed-color')?.value || '#7c3aed';
+        data.embed_footer = document.querySelector('.cmd-embed-footer')?.value;
+        data.embed_image = document.querySelector('.cmd-embed-image')?.value;
+    }
+    fetch(`/api/guild/${GUILD_ID}/commands`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(d => {
+        if (d.success) { showToast('', 'Comando creado', 'success'); loadCustomCommands(); }
+    });
+}
+
+function removeCommand(id) {
+    if (!confirm('Eliminar comando?')) return;
+    fetch(`/api/guild/${GUILD_ID}/commands`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'remove', id})
+    }).then(r => r.json()).then(d => { if (d.success) { loadCustomCommands(); showToast('', 'Comando eliminado', 'success'); }});
+}
+
+// ─── Embed Builder ──────────────────────────────────────────────────
+function previewEmbed() {
+    const title = document.getElementById('eb-title')?.value || 'Sin titulo';
+    const desc = document.getElementById('eb-desc')?.value || 'Sin descripcion';
+    const color = document.getElementById('eb-color')?.value || '#7c3aed';
+    const footer = document.getElementById('eb-footer')?.value || 'Comunidad de Programadores';
+    document.getElementById('preview-title').textContent = title;
+    document.getElementById('preview-desc').textContent = desc;
+    document.getElementById('preview-footer').textContent = footer;
+    document.getElementById('embed-preview').style.borderLeftColor = color;
+    const chars = title.length + desc.length + footer.length;
+    document.getElementById('preview-stats').textContent = `Caracteres: ${chars} | Limite: 6000`;
+}
+
+function sendEmbed() {
+    const data = {
+        title: document.getElementById('eb-title')?.value || '',
+        description: document.getElementById('eb-desc')?.value || '',
+        color: document.getElementById('eb-color')?.value || '#7c3aed',
+        footer: document.getElementById('eb-footer')?.value || '',
+        image: document.getElementById('eb-image')?.value || '',
+        thumbnail: document.getElementById('eb-thumb')?.value || '',
+        channel_id: document.getElementById('eb-channel')?.value || ''
+    };
+    if (!data.channel_id) return showToast('', 'Ingresa un ID de canal', 'warning');
+    fetch(`/api/guild/${GUILD_ID}/embed/send`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => r.json()).then(d => {
+        if (d.success) showToast('', 'Embed enviado al canal', 'success');
+        else showToast('', 'Error al enviar embed', 'error');
+    });
+}
+
+// ─── Temp Voice ─────────────────────────────────────────────────────
+function loadTempVoices() {
+    const container = document.getElementById('tv-list');
+    if (!container) return;
+    fetch(`/api/guild/${GUILD_ID}/temp-voice`)
+    .then(r => r.json()).then(voices => {
+        container.innerHTML = '';
+        if (!voices || voices.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:.85rem;">Sin canales temporales activos</p></div>';
+            return;
+        }
+        voices.forEach(v => {
+            container.innerHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:6px;">
+                <div><strong>${v.name || 'Canal'}</strong><br><span style="font-size:.75rem;color:var(--text-muted);">ID: <code>${v.channel_id}</code> | Owner: <code>${v.owner_id}</code></span></div>
+            </div>`;
+        });
+    });
+}
+
+// ─── Audit Log ──────────────────────────────────────────────────────
+function loadAuditLog() {
+    const tbody = document.getElementById('audit-body');
+    if (!tbody) return;
+    fetch(`/api/guild/${GUILD_ID}/audit`)
+    .then(r => r.json()).then(logs => {
+        tbody.innerHTML = '';
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding:2rem;color:var(--text-muted);">Sin actividad registrada</td></tr>';
+            return;
+        }
+        logs.forEach(l => {
+            const ts = l.timestamp ? new Date(l.timestamp * 1000).toLocaleString() : '';
+            tbody.innerHTML += `<tr>
+                <td><code>${l.user_id}</code></td>
+                <td>${l.action}</td>
+                <td><span class="badge-premium blue">${l.module}</span></td>
+                <td style="font-size:.8rem;">${l.details || ''}</td>
+                <td style="font-size:.8rem;">${ts}</td>
+            </tr>`;
+        });
+    });
+}
+
 // ─── Overview stats ─────────────────────────────────────────────────
 function loadOverviewStats() {
     fetch(`/api/guild/${GUILD_ID}/stats`)
@@ -957,6 +1338,15 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSuggestions();
     loadTickets();
     loadRecentWarns();
+    loadCustomCommands();
+    loadTempVoices();
+    loadAuditLog();
+
+    // Real-time preview for embed builder
+    ['eb-title','eb-desc','eb-color','eb-footer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', previewEmbed);
+    });
 });
 
 
