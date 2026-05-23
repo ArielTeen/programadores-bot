@@ -1,11 +1,11 @@
-import os, sys, secrets, time, json, asyncio
+import os, sys, secrets, time, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask, redirect, request, session, render_template, jsonify
 from functools import wraps
 import requests
 from dashboard import config as dash_config
-from database.db import Database
+from dashboard import db_sync
 
 app = Flask(__name__)
 app.secret_key = dash_config.SECRET_KEY
@@ -129,165 +129,73 @@ def _get_accessible_guilds(access_token, user_id):
 def _get_admin_guilds(access_token, user_id):
     return [g for g in _get_guilds_with_perms(access_token, user_id) if g["can_configure"]]
 
-def _run_async(coro):
-    try:
-        return asyncio.run(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-
 def _get_guild_config(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            return await db.get_guild(int(guild_id))
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.get_guild(int(guild_id))
 
 def _save_guild_config(guild_id, data):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            await db.update_guild(int(guild_id), **data)
-        finally:
-            await db.close()
-    _run_async(_do())
+    db_sync.update_guild(int(guild_id), **data)
 
 def _fetch_guild_stats(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            w = await db.fetchall("SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND active = 1", guild_id)
-            m = await db.fetchall("SELECT COUNT(*) as c FROM members WHERE guild_id = ?", guild_id)
-            t = await db.fetchall("SELECT COUNT(*) as c FROM tickets WHERE guild_id = ?", guild_id)
-            xp = await db.get_leaderboard(guild_id, "total_xp", 10)
-            bal = await db.get_leaderboard(guild_id, "balance", 5)
-            rep = await db.get_leaderboard(guild_id, "reputation", 10)
-            rep_stats = await db.get_rep_stats(guild_id)
-            recent_rep = await db.get_rep_history(guild_id, None, 5)
-            return {
-                "warnings": w[0]["c"] if w else 0,
-                "members_tracked": m[0]["c"] if m else 0,
-                "tickets": t[0]["c"] if t else 0,
-                "top_xp": [{"id": r["user_id"], "xp": r["total_xp"], "level": r["level"]} for r in (xp or [])],
-                "top_balance": [{"id": r["user_id"], "balance": r["balance"], "bank": r["bank"]} for r in (bal or [])],
-                "top_reputation": [{"id": r["user_id"], "rep": r["reputation"]} for r in (rep or [])],
-                "rep_total_given": rep_stats.get("total_given", 0),
-                "rep_recent": [{"from": r["from_user_id"], "to": r["to_user_id"], "ts": r["timestamp"]} for r in (recent_rep or [])],
-            }
-        finally:
-            await db.close()
-    return _run_async(_do())
+    gid = int(guild_id)
+    w = db_sync.fetchall("SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND active = 1", gid)
+    m = db_sync.fetchall("SELECT COUNT(*) as c FROM members WHERE guild_id = ?", gid)
+    t = db_sync.fetchall("SELECT COUNT(*) as c FROM tickets WHERE guild_id = ?", gid)
+    xp = db_sync.get_leaderboard(gid, "total_xp", 10)
+    bal = db_sync.get_leaderboard(gid, "balance", 5)
+    rep = db_sync.get_leaderboard(gid, "reputation", 10)
+    rep_stats = db_sync.get_rep_stats(gid)
+    recent_rep = db_sync.get_rep_history(gid, None, 5)
+    return {
+        "warnings": w[0]["c"] if w else 0,
+        "members_tracked": m[0]["c"] if m else 0,
+        "tickets": t[0]["c"] if t else 0,
+        "top_xp": [{"id": r["user_id"], "xp": r["total_xp"], "level": r["level"]} for r in (xp or [])],
+        "top_balance": [{"id": r["user_id"], "balance": r["balance"], "bank": r["bank"]} for r in (bal or [])],
+        "top_reputation": [{"id": r["user_id"], "rep": r["reputation"]} for r in (rep or [])],
+        "rep_total_given": rep_stats.get("total_given", 0) if rep_stats else 0,
+        "rep_recent": [{"from": r["from_user_id"], "to": r["to_user_id"], "ts": r["timestamp"]} for r in (recent_rep or [])],
+    }
 
 def _fetch_guild_warnings(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.fetchall("SELECT w.* FROM warnings w WHERE w.guild_id = ? AND w.active = 1 ORDER BY w.timestamp DESC LIMIT 50", guild_id)
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.fetchall("SELECT w.* FROM warnings w WHERE w.guild_id = ? AND w.active = 1 ORDER BY w.timestamp DESC LIMIT 50", guild_id)
 
 def _fetch_guild_tickets(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_guild_tickets(guild_id)
-            return [dict(r) for r in (rows or [])]
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.get_guild_tickets(guild_id)
 
 def _fetch_leaderboard(guild_id, stat, limit=20):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_leaderboard(guild_id, stat, limit)
-            return [dict(r) for r in (rows or [])]
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.get_leaderboard(guild_id, stat, limit)
 
 def _fetch_shop_items(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            items = await db.get_shop_items(guild_id)
-            return [dict(r) for r in (items or [])]
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.get_shop_items(guild_id)
 
 def _mutate_shop(guild_id, action, data):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if action == "add":
-                await db.add_shop_item(guild_id, data["name"], data.get("description", ""), int(data.get("role_id", 0)), int(data["price"]), data.get("emoji", ""))
-            elif action == "remove":
-                await db.remove_shop_item(int(data["id"]), guild_id)
-        finally:
-            await db.close()
-    _run_async(_do())
+    if action == "add":
+        db_sync.add_shop_item(guild_id, data["name"], data.get("description", ""), int(data.get("role_id", 0)), int(data["price"]), data.get("emoji", ""))
+    elif action == "remove":
+        db_sync.remove_shop_item(int(data["id"]), guild_id)
 
 def _fetch_rep_config(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            g = await db.get_guild(int(guild_id))
-            roles = await db.get_rep_roles(int(guild_id))
-            return {
-                "enabled": g.get("rep_enabled", 1),
-                "cooldown": g.get("rep_cooldown", 43200),
-                "channel": g.get("rep_channel", 0),
-                "log_channel": g.get("rep_log_channel", 0),
-                "max_per_user": g.get("rep_max_per_user", 100),
-                "min_level": g.get("rep_min_level", 0),
-                "staff_only": g.get("rep_staff_only", 0),
-                "roles": [dict(r) for r in (roles or [])],
-            }
-        finally:
-            await db.close()
-    return _run_async(_do())
+    g = db_sync.get_guild(int(guild_id))
+    roles = db_sync.get_rep_roles(int(guild_id))
+    return {
+        "enabled": g.get("rep_enabled", 1),
+        "cooldown": g.get("rep_cooldown", 43200),
+        "channel": g.get("rep_channel", 0),
+        "log_channel": g.get("rep_log_channel", 0),
+        "max_per_user": g.get("rep_max_per_user", 100),
+        "min_level": g.get("rep_min_level", 0),
+        "staff_only": g.get("rep_staff_only", 0),
+        "roles": [dict(r) for r in (roles or [])],
+    }
 
 def _fetch_rep_roles(guild_id):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            roles = await db.get_rep_roles(int(guild_id))
-            return [dict(r) for r in (roles or [])]
-        finally:
-            await db.close()
-    return _run_async(_do())
+    return db_sync.get_rep_roles(int(guild_id))
 
 def _mutate_rep_role(guild_id, action, data):
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if action == "add":
-                await db.add_rep_role(int(guild_id), int(data["rep_min"]), int(data["role_id"]))
-            elif action == "remove":
-                await db.remove_rep_role_by_id(int(data["id"]))
-        finally:
-            await db.close()
-    _run_async(_do())
+    if action == "add":
+        db_sync.add_rep_role(int(guild_id), int(data["rep_min"]), int(data["role_id"]))
+    elif action == "remove":
+        db_sync.remove_rep_role_by_id(int(data["id"]))
 
 # ─── Auth Decorator ────────────────────────────────────────────────────────
 
@@ -365,12 +273,7 @@ def callback():
     app.logger.info(f"Usuario {user.get('username')} ({user.get('id')}) inicio sesion")
 
     try:
-        async def _save():
-            db = Database()
-            await db.connect()
-            await db.create_session(secrets.token_hex(16), int(user["id"]), time.time() + 86400)
-            await db.close()
-        _run_async(_save())
+        db_sync.create_session(secrets.token_hex(16), int(user["id"]), time.time() + 86400)
     except Exception as e:
         app.logger.warning(f"No se pudo crear sesion en DB: {e}")
 
@@ -452,15 +355,8 @@ def api_guild_config(guild_id):
         data = request.json
         if not data:
             return jsonify({"error": "No data"}), 400
-        async def _audit():
-            db = Database()
-            await db.connect()
-            try:
-                keys = list(data.keys())[:3]
-                await db.add_audit_log(int(guild_id), int(session["user"]["id"]), "config_update", "general", f"Updated: {', '.join(keys)}")
-            finally:
-                await db.close()
-        _run_async(_audit())
+        keys = list(data.keys())[:3]
+        db_sync.add_audit_log(int(guild_id), int(session["user"]["id"]), "config_update", "general", f"Updated: {', '.join(keys)}")
         _save_guild_config(guild_id, data)
         return jsonify({"success": True})
     guild = _check_guild_access(guild_id)
@@ -537,15 +433,8 @@ def api_guild_rep_roles(guild_id):
 def api_guild_members(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.fetchall("SELECT user_id, level, total_xp, reputation, balance FROM members WHERE guild_id = ? ORDER BY total_xp DESC LIMIT 100", guild_id)
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.fetchall("SELECT user_id, level, total_xp, reputation, balance FROM members WHERE guild_id = ? ORDER BY total_xp DESC LIMIT 100", guild_id)
+    return jsonify(rows or [])
 
 @app.route("/api/guild/<guild_id>/warn", methods=["POST"])
 @auth_required
@@ -557,17 +446,10 @@ def api_guild_warn(guild_id):
     user_id = data.get("user_id")
     reason = data.get("reason", "Sin motivo")
     mod_id = session["user"]["id"]
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            c = await db.fetchone("SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
-            case = (c["c"] if c else 0) + 1
-            await db.execute("INSERT INTO warnings (guild_id, user_id, moderator_id, reason, case_number, active) VALUES (?, ?, ?, ?, ?, 1)", guild_id, user_id, mod_id, reason, case)
-            return {"success": True, "case": case}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    c = db_sync.fetchone("SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
+    case = (c["c"] if c else 0) + 1
+    db_sync.execute("INSERT INTO warnings (guild_id, user_id, moderator_id, reason, case_number, active) VALUES (?, ?, ?, ?, ?, 1)", guild_id, user_id, mod_id, reason, case)
+    return jsonify({"success": True, "case": case})
 
 @app.route("/api/guild/<guild_id>/warn/<int:warn_id>", methods=["DELETE"])
 @auth_required
@@ -575,15 +457,8 @@ def api_guild_warn_delete(guild_id, warn_id):
     guild = _check_admin_access(guild_id)
     if not guild:
         return jsonify({"error": "Se requieren permisos de administrador"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            await db.execute("UPDATE warnings SET active = 0 WHERE id = ? AND guild_id = ?", warn_id, guild_id)
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    db_sync.execute("UPDATE warnings SET active = 0 WHERE id = ? AND guild_id = ?", warn_id, guild_id)
+    return jsonify({"success": True})
 
 @app.route("/api/guild/<guild_id>/warns/clear", methods=["POST"])
 @auth_required
@@ -592,18 +467,11 @@ def api_guild_warns_clear(guild_id):
     if not guild:
         return jsonify({"error": "Se requieren permisos de administrador"}), 403
     user_id = request.json.get("user_id")
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if user_id:
-                await db.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
-            else:
-                await db.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND active = 1", guild_id)
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    if user_id:
+        db_sync.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
+    else:
+        db_sync.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND active = 1", guild_id)
+    return jsonify({"success": True})
 
 # ─── Reaction Roles API ───────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/reaction-roles", methods=["GET", "POST"])
@@ -617,30 +485,16 @@ def api_guild_reaction_roles(guild_id):
             return jsonify({"error": "Se requieren permisos de administrador"}), 403
         data = request.json or {}
         action = data.get("action")
-        async def _do():
-            db = Database()
-            await db.connect()
-            try:
-                if action == "add":
-                    msg_id = int(data.get("message_id", 0))
-                    role_id = int(data.get("role_id", 0))
-                    emoji = data.get("emoji", "⭐")
-                    await db.add_reaction_role(int(guild_id), 0, msg_id, role_id, emoji)
-                elif action == "remove":
-                    await db.remove_reaction_role(int(data.get("id", 0)), int(guild_id))
-                return {"success": True}
-            finally:
-                await db.close()
-        return jsonify(_run_async(_do()))
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_reaction_roles(int(guild_id))
-            return [dict(r) for r in (rows or [])]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+        if action == "add":
+            msg_id = int(data.get("message_id", 0))
+            role_id = int(data.get("role_id", 0))
+            emoji = data.get("emoji", "⭐")
+            db_sync.add_reaction_role(int(guild_id), 0, msg_id, role_id, emoji)
+        elif action == "remove":
+            db_sync.remove_reaction_role(int(data.get("id", 0)), int(guild_id))
+        return jsonify({"success": True})
+    rows = db_sync.get_reaction_roles(int(guild_id))
+    return jsonify(rows or [])
 
 # ─── Giveaways API ───────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/giveaways", methods=["GET"])
@@ -648,15 +502,8 @@ def api_guild_reaction_roles(guild_id):
 def api_guild_giveaways(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_guild_giveaways(int(guild_id))
-            return [dict(r) for r in (rows or [])]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.get_guild_giveaways(int(guild_id))
+    return jsonify(rows or [])
 
 @app.route("/api/guild/<guild_id>/giveaway", methods=["POST"])
 @auth_required
@@ -666,26 +513,19 @@ def api_guild_giveaway(guild_id):
         return jsonify({"error": "Se requieren permisos de administrador"}), 403
     data = request.json or {}
     action = data.get("action")
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if action == "start":
-                prize = data.get("prize", "Sorteo")
-                duration = int(data.get("duration", 3600))
-                winners = int(data.get("winners", 1))
-                channel_id = int(data.get("channel_id", 0))
-                end_time = time.time() + duration
-                await db.create_giveaway(int(guild_id), channel_id, 0, prize, winners, end_time, int(session["user"]["id"]))
-            elif action == "end":
-                gw_id = int(data.get("id", 0))
-                row = await db.fetchone("SELECT message_id FROM giveaways WHERE id = ? AND guild_id = ?", gw_id, guild_id)
-                if row:
-                    await db.end_giveaway(row["message_id"])
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    if action == "start":
+        prize = data.get("prize", "Sorteo")
+        duration = int(data.get("duration", 3600))
+        winners = int(data.get("winners", 1))
+        channel_id = int(data.get("channel_id", 0))
+        end_at = time.time() + duration
+        db_sync.create_giveaway(int(guild_id), channel_id, 0, prize, winners, end_at, int(session["user"]["id"]))
+    elif action == "end":
+        gw_id = int(data.get("id", 0))
+        row = db_sync.fetchone("SELECT message_id FROM giveaways WHERE id = ? AND guild_id = ?", gw_id, guild_id)
+        if row:
+            db_sync.end_giveaway(row["message_id"])
+    return jsonify({"success": True})
 
 # ─── Suggestions API ─────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/suggestions", methods=["GET"])
@@ -693,15 +533,8 @@ def api_guild_giveaway(guild_id):
 def api_guild_suggestions(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_guild_suggestions(int(guild_id))
-            return [dict(r) for r in (rows or [])]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.get_guild_suggestions(int(guild_id))
+    return jsonify(rows or [])
 
 # ─── Warns API (limit param) ─────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/warns", methods=["GET"])
@@ -710,15 +543,8 @@ def api_guild_warns(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
     limit = request.args.get("limit", 50, type=int)
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.fetchall("SELECT w.* FROM warnings w WHERE w.guild_id = ? AND w.active = 1 ORDER BY w.timestamp DESC LIMIT ?", guild_id, limit)
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.fetchall("SELECT w.* FROM warnings w WHERE w.guild_id = ? AND w.active = 1 ORDER BY w.timestamp DESC LIMIT ?", guild_id, limit)
+    return jsonify(rows)
 
 @app.route("/api/guild/<guild_id>/ticket/create", methods=["POST"])
 @auth_required
@@ -729,15 +555,8 @@ def api_guild_ticket_create(guild_id):
     data = request.json
     user_id_val = data.get("user_id", session["user"]["id"])
     subject = data.get("subject", "Soporte")
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            await db.execute("INSERT INTO tickets (guild_id, user_id, subject, status, created_at) VALUES (?, ?, ?, 'open', ?)", guild_id, user_id_val, subject, time.time())
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    db_sync.execute("INSERT INTO tickets (guild_id, user_id, subject, status, created_at) VALUES (?, ?, ?, 'open', ?)", guild_id, user_id_val, subject, time.time())
+    return jsonify({"success": True})
 
 @app.route("/api/guild/<guild_id>/ticket/<int:ticket_id>/close", methods=["POST"])
 @auth_required
@@ -745,15 +564,8 @@ def api_guild_ticket_close(guild_id, ticket_id):
     guild = _check_admin_access(guild_id)
     if not guild:
         return jsonify({"error": "Se requieren permisos de administrador"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            await db.execute("UPDATE tickets SET status = 'closed' WHERE id = ? AND guild_id = ?", ticket_id, guild_id)
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    db_sync.execute("UPDATE tickets SET status = 'closed' WHERE id = ? AND guild_id = ?", ticket_id, guild_id)
+    return jsonify({"success": True})
 
 @app.route("/api/guild/<guild_id>/rep/manage", methods=["POST"])
 @auth_required
@@ -765,22 +577,15 @@ def api_guild_rep_manage(guild_id):
     action = data.get("action")
     target_id = data.get("user_id")
     amount = data.get("amount", 0)
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if action == "set":
-                await db.update_member(int(guild_id), int(target_id), reputation=amount)
-            elif action == "add":
-                await db.add_reputation(int(guild_id), int(target_id), int(amount), session["user"]["id"])
-            elif action == "remove":
-                await db.add_reputation(int(guild_id), int(target_id), -int(amount), session["user"]["id"])
-            elif action == "reset":
-                await db.update_member(int(guild_id), int(target_id), reputation=0)
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    if action == "set":
+        db_sync.update_member(int(guild_id), int(target_id), reputation=amount)
+    elif action == "add":
+        db_sync.add_reputation(int(guild_id), int(target_id), int(amount), session["user"]["id"])
+    elif action == "remove":
+        db_sync.add_reputation(int(guild_id), int(target_id), -int(amount), session["user"]["id"])
+    elif action == "reset":
+        db_sync.update_member(int(guild_id), int(target_id), reputation=0)
+    return jsonify({"success": True})
 
 @app.route("/api/user/guilds")
 @auth_required
@@ -798,36 +603,22 @@ def api_members_search(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
     query = request.args.get("q", "")
     limit = request.args.get("limit", 50, type=int)
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.search_members(int(guild_id), query, limit)
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.search_members(int(guild_id), query, limit)
+    return jsonify(rows)
 
 @app.route("/api/guild/<guild_id>/member/<user_id>", methods=["GET"])
 @auth_required
 def api_member_detail(guild_id, user_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            m = await db.get_member(int(user_id), int(guild_id))
-            warns = await db.get_warnings(int(user_id), int(guild_id))
-            m["warnings"] = [dict(r) for r in warns]
-            rank_xp, _ = await db.get_rank(int(user_id), int(guild_id), "total_xp")
-            rank_rep, _ = await db.get_rank(int(user_id), int(guild_id), "reputation")
-            m["rank_xp"] = rank_xp
-            m["rank_rep"] = rank_rep
-            return m
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    m = db_sync.get_member(int(user_id), int(guild_id))
+    warns = db_sync.get_warnings(int(user_id), int(guild_id))
+    m["warnings"] = warns or []
+    rank_xp, _ = db_sync.get_rank(int(user_id), int(guild_id), "total_xp")
+    rank_rep, _ = db_sync.get_rank(int(user_id), int(guild_id), "reputation")
+    m["rank_xp"] = rank_xp
+    m["rank_rep"] = rank_rep
+    return jsonify(m)
 
 # ─── Custom Commands API ─────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/commands", methods=["GET"])
@@ -835,15 +626,8 @@ def api_member_detail(guild_id, user_id):
 def api_custom_commands(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_custom_commands(int(guild_id))
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.get_custom_commands(int(guild_id))
+    return jsonify(rows)
 
 @app.route("/api/guild/<guild_id>/commands", methods=["POST"])
 @auth_required
@@ -853,30 +637,23 @@ def api_custom_command_create(guild_id):
         return jsonify({"error": "Se requieren permisos de administrador"}), 403
     data = request.json or {}
     action = data.get("action", "add")
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            if action == "add":
-                await db.add_custom_command(
-                    int(guild_id), data["name"], data.get("type", "text"),
-                    data.get("content", ""), int(session["user"]["id"]),
-                    embed_title=data.get("embed_title"),
-                    embed_description=data.get("embed_description"),
-                    embed_color=data.get("embed_color", "#7c3aed"),
-                    embed_footer=data.get("embed_footer"),
-                    embed_image=data.get("embed_image"),
-                    embed_thumbnail=data.get("embed_thumbnail"),
-                    role_required=int(data.get("role_required", 0)),
-                    cooldown=int(data.get("cooldown", 0)),
-                )
-            elif action == "remove":
-                await db.remove_custom_command(int(data["id"]), int(guild_id))
-            await db.add_audit_log(int(guild_id), int(session["user"]["id"]), action, "custom_commands", f"Command: {data.get('name', '')}")
-            return {"success": True}
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    if action == "add":
+        db_sync.add_custom_command(
+            int(guild_id), data["name"], data.get("type", "text"),
+            data.get("content", ""), int(session["user"]["id"]),
+            embed_title=data.get("embed_title"),
+            embed_description=data.get("embed_description"),
+            embed_color=data.get("embed_color", "#7c3aed"),
+            embed_footer=data.get("embed_footer"),
+            embed_image=data.get("embed_image"),
+            embed_thumbnail=data.get("embed_thumbnail"),
+            role_required=int(data.get("role_required", 0)),
+            cooldown=int(data.get("cooldown", 0)),
+        )
+    elif action == "remove":
+        db_sync.remove_custom_command(int(data["id"]), int(guild_id))
+    db_sync.add_audit_log(int(guild_id), int(session["user"]["id"]), action, "custom_commands", f"Command: {data.get('name', '')}")
+    return jsonify({"success": True})
 
 # ─── Audit Log API ───────────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/audit", methods=["GET"])
@@ -885,14 +662,8 @@ def api_audit_log(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
     limit = request.args.get("limit", 50, type=int)
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            return await db.get_audit_logs(int(guild_id), limit)
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.get_audit_logs(int(guild_id), limit)
+    return jsonify(rows)
 
 # ─── Temp Voice API ──────────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/temp-voice", methods=["GET"])
@@ -900,15 +671,8 @@ def api_audit_log(guild_id):
 def api_temp_voice(guild_id):
     if not _check_guild_access(guild_id):
         return jsonify({"error": "Acceso denegado"}), 403
-    async def _do():
-        db = Database()
-        await db.connect()
-        try:
-            rows = await db.get_guild_temp_voices(int(guild_id))
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
-    return jsonify(_run_async(_do()))
+    rows = db_sync.get_guild_temp_voices(int(guild_id))
+    return jsonify(rows)
 
 # ─── Embed Builder API ───────────────────────────────────────────────────
 @app.route("/api/guild/<guild_id>/embed/send", methods=["POST"])
