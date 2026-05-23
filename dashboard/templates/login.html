@@ -41,7 +41,15 @@
         <div class="particle particle-10"></div>
         <div class="particle particle-11"></div>
         <div class="particle particle-12"></div>
+        <div class="shooting-star"></div>
+        <div class="shooting-star"></div>
+        <div class="shooting-star"></div>
     </div>
+    <div class="float-element"></div>
+    <div class="float-element"></div>
+    <div class="float-element"></div>
+    <div class="float-element"></div>
+    <div class="cursor-orb" id="cursorOrb"></div>
 
     <div class="layout-auth">
         <nav class="auth-navbar">
@@ -124,6 +132,14 @@
         </div>
     </div>
 
+    <script>
+    document.addEventListener('mousemove', function(e) {
+        const orb = document.getElementById('cursorOrb');
+        if (orb) {
+            orb.style.transform = 'translate(' + (e.clientX - 150) + 'px, ' + (e.clientY - 150) + 'px)';
+        }
+    });
+    </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

@@ -7,22 +7,22 @@
 </div>
 
 <div class="row animate-fade-in-up delay-1" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px;">
-    <div class="stat-card">
+    <div class="stat-card tilt-card">
         <div class="stat-card-icon blue"><i class="bi bi-server"></i></div>
         <div class="stat-card-value">{{ stats.total_guilds }}</div>
         <div class="stat-card-label">Servidores totales</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card tilt-card">
         <div class="stat-card-icon green"><i class="bi bi-shield-check"></i></div>
         <div class="stat-card-value">{{ stats.admin_guilds }}</div>
         <div class="stat-card-label">Admin / Propietario</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card tilt-card">
         <div class="stat-card-icon purple"><i class="bi bi-person-badge"></i></div>
         <div class="stat-card-value">{{ stats.staff_guilds }}</div>
         <div class="stat-card-label">Staff (solo lectura)</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card tilt-card">
         <div class="stat-card-icon yellow"><i class="bi bi-people"></i></div>
         <div class="stat-card-value">{{ guilds|length - stats.admin_guilds - stats.staff_guilds }}</div>
         <div class="stat-card-label">Miembro (sin acceso)</div>

@@ -1157,6 +1157,153 @@ pre code { background: none; padding: 0; }
 
 .chart-container-sm { height: 180px; }
 
+/* ─── Cursor Glow Orb ──────────────────────────────────────────────────── */
+
+.cursor-orb {
+    position: fixed; pointer-events: none; z-index: 9999;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, rgba(217,70,239,0.06) 30%, transparent 70%);
+    transform: translate(-50%, -50%);
+    transition: opacity 0.3s;
+    will-change: transform;
+}
+
+/* ─── Shooting Stars ──────────────────────────────────────────────────── */
+
+.shooting-star {
+    position: fixed; width: 2px; height: 2px;
+    background: white; border-radius: 50%; pointer-events: none; z-index: 0;
+    animation: shoot linear infinite;
+}
+
+.shooting-star::after {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 60px; height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.8), transparent);
+    transform: rotate(-45deg) translateX(-30px);
+}
+
+.shooting-star:nth-child(1) { top: 5%; left: 80%; animation-duration: 8s; animation-delay: 3s; }
+.shooting-star:nth-child(2) { top: 15%; left: 60%; animation-duration: 12s; animation-delay: 7s; }
+.shooting-star:nth-child(3) { top: 25%; left: 90%; animation-duration: 15s; animation-delay: 11s; width: 1px; height: 1px; }
+
+@keyframes shoot {
+    0% { transform: translate(0, 0) rotate(-45deg); opacity: 0; }
+    5% { opacity: 1; }
+    15% { transform: translate(-200px, 200px) rotate(-45deg); opacity: 1; }
+    20% { opacity: 0; }
+    100% { opacity: 0; }
+}
+
+/* ─── Typewriter Effect ───────────────────────────────────────────────── */
+
+.typewriter {
+    display: inline-block; overflow: hidden;
+    white-space: nowrap; border-right: 2px solid var(--accent);
+    animation: typewriter 3s steps(60) 1s forwards, blink 0.8s step-end infinite;
+    max-width: 0;
+}
+
+@keyframes typewriter {
+    to { max-width: 100%; }
+}
+
+@keyframes blink {
+    50% { border-color: transparent; }
+}
+
+/* ─── Tilt Card Effect ────────────────────────────────────────────────── */
+
+.tilt-card {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-style: preserve-3d;
+    perspective: 800px;
+}
+
+.tilt-card:hover {
+    transform: perspective(800px) rotateX(var(--tilt-y, 0deg)) rotateY(var(--tilt-x, 0deg));
+}
+
+/* ─── Gradient Border Animation ───────────────────────────────────────── */
+
+.gradient-border {
+    position: relative; border: none !important;
+}
+
+.gradient-border::before {
+    content: ''; position: absolute; inset: -1px; z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--accent), var(--pink), var(--cyan), var(--accent));
+    background-size: 300% 300%;
+    animation: gradientRotate 4s ease infinite;
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+.gradient-border:hover::before {
+    opacity: 1;
+}
+
+@keyframes gradientRotate {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ─── Float Elements (Login) ──────────────────────────────────────────── */
+
+.float-element {
+    position: absolute; pointer-events: none; z-index: 0;
+    border-radius: 50%;
+    animation: floatElement 6s ease-in-out infinite;
+    opacity: 0.3;
+}
+
+.float-element:nth-child(1) {
+    width: 80px; height: 80px; top: 15%; left: 10%;
+    background: radial-gradient(circle, rgba(124,58,237,0.2), transparent);
+    animation-delay: 0s; animation-duration: 7s;
+}
+
+.float-element:nth-child(2) {
+    width: 120px; height: 120px; top: 60%; right: 8%;
+    background: radial-gradient(circle, rgba(217,70,239,0.15), transparent);
+    animation-delay: 1s; animation-duration: 9s;
+}
+
+.float-element:nth-child(3) {
+    width: 60px; height: 60px; bottom: 20%; left: 20%;
+    background: radial-gradient(circle, rgba(34,211,238,0.15), transparent);
+    animation-delay: 2s; animation-duration: 6s;
+}
+
+.float-element:nth-child(4) {
+    width: 100px; height: 100px; top: 30%; right: 25%;
+    background: radial-gradient(circle, rgba(124,58,237,0.12), transparent);
+    animation-delay: 0.5s; animation-duration: 8s;
+}
+
+@keyframes floatElement {
+    0%, 100% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(-20px) scale(1.1); }
+    50% { transform: translateY(-10px) scale(0.95); }
+    75% { transform: translateY(-30px) scale(1.05); }
+}
+
+/* ─── Navbar Glow ─────────────────────────────────────────────────────── */
+
+.navbar-glow {
+    position: absolute; bottom: -1px; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--pink), transparent);
+    opacity: 0.6;
+    animation: navbarGlow 3s ease-in-out infinite;
+}
+
+@keyframes navbarGlow {
+    0%, 100% { opacity: 0.3; transform: scaleX(0.95); }
+    50% { opacity: 0.8; transform: scaleX(1); }
+}
+
 /* ─── Utility Classes ───────────────────────────────────────────────────── */
 
 .flex { display: flex; }
