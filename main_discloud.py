@@ -18,7 +18,7 @@ setup_logger("TeenBot")
 
 def run_dashboard():
     from dashboard.app import app
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 # ─── Bot ─────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ def main():
 
     t = threading.Thread(target=run_dashboard, daemon=True)
     t.start()
-    logger.info(f"Dashboard iniciado en puerto {os.getenv('PORT', 5000)}")
+    logger.info(f"Dashboard iniciado en puerto {os.getenv('PORT', 8080)}")
 
     try:
         asyncio.run(run_bot())
