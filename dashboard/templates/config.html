@@ -124,7 +124,18 @@
 <div class="glass-card p-4">
     <div class="card-header-custom"><h5><i class="bi bi-trophy" style="color: var(--yellow);"></i> Top XP</h5></div>
     <div style="overflow-x: auto;">
-        <table class="table-premium"><thead><tr><th>#</th><th>Usuario</th><th>XP</th><th>Nivel</th></tr></thead><tbody id="ov-top-xp"></tbody></table>
+        <table class="table-premium"><thead><tr><th>#</th><th>Usuario</th><th>XP</th><th>Nivel</th></tr></thead>        <tbody id="ov-top-xp"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="glass-card p-4">
+        <div class="card-header-custom">
+            <h5><i class="bi bi-exclamation-triangle" style="color:var(--yellow);"></i> Ultimos Warns</h5>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="table-premium">
+                <thead><tr><th>Usuario</th><th>Moderador</th><th>Razon</th><th>Fecha</th></tr></thead>
+                <tbody id="ov-warns-body"></tbody></table>
     </div>
 </div>
 </div>
@@ -266,7 +277,7 @@
 
 {% elif module == 'tickets' %}
 <div id="section-tickets">
-<div class="page-header"><h1><i class="bi bi-ticket-perforated"></i> Tickets</h1><p>Sistema de tickets de soporte para tu servidor.</p></div>
+<div class="page-header"><h1><i class="bi bi-ticket-perforated"></i> Tickets</h1><p>Sistema de tickets de soporte con panel de gestion.</p></div>
 <div class="config-grid">
     <div class="config-card">
         <div class="config-card-title"><i class="bi bi-toggle-on" style="color:var(--accent);"></i> Estado</div>
@@ -276,7 +287,8 @@
         </div>
         <div class="form-group"><label class="form-label">ID de categoria para tickets</label><input type="text" class="form-input tk-category" placeholder="ID de categoria" value="{{ config.ticket_category or '' }}"></div>
         <div class="form-group"><label class="form-label">Limite de tickets por usuario</label><input type="number" class="form-input tk-limit" value="{{ config.ticket_open_limit or 3 }}" min="1" max="10"></div>
-        <button class="btn-accent btn-accent-sm" onclick="saveField({ticket_enabled: toggleVal('tk-enabled'), ticket_category: getInput('.tk-category'), ticket_open_limit: intVal('.tk-limit')})"><i class="bi bi-check-circle"></i> Guardar</button>
+        <div class="form-group"><label class="form-label">Mensaje de bienvenida del ticket</label><textarea class="form-textarea tk-welcome" rows="2">{% if config.ticket_welcome_message %}{{ config.ticket_welcome_message }}{% else %}Gracias por abrir un ticket. El staff te atendra en breve.{% endif %}</textarea></div>
+        <button class="btn-accent btn-accent-sm" onclick="saveField({ticket_enabled: toggleVal('tk-enabled'), ticket_category: getInput('.tk-category'), ticket_open_limit: intVal('.tk-limit'), ticket_welcome_message: textareaVal('.tk-welcome')})"><i class="bi bi-check-circle"></i> Guardar</button>
     </div>
     <div class="config-card">
         <div class="config-card-title"><i class="bi bi-people" style="color:var(--green);"></i> Roles de Soporte</div>
@@ -284,13 +296,25 @@
         <button class="btn-accent btn-accent-sm" onclick="saveField({'ticket_support_roles': getInput('.tk-support-roles').split(',').map(s=>s.trim()).filter(Boolean)})"><i class="bi bi-check-circle"></i> Guardar</button>
     </div>
     <div class="config-card">
-        <div class="config-card-title"><i class="bi bi-journal-text" style="color:var(--purple);"></i> Transcripts</div>
+        <div class="config-card-title"><i class="bi bi-journal-text" style="color:var(--purple);"></i> Transcripts y Logs</div>
         <div class="mb-3" style="display:flex;align-items:center;justify-content:space-between;">
             <span style="font-size:.9rem;">Guardar transcripts al cerrar</span>
             <div class="form-toggle {% if config.ticket_transcripts %}active{% endif %}" onclick="this.classList.toggle('active')" id="tk-transcripts"></div>
         </div>
         <div class="form-group"><label class="form-label">Canal para logs de tickets</label><input type="text" class="form-input tk-log-channel" placeholder="ID del canal" value="{{ config.ticket_log_channel or '' }}"></div>
         <button class="btn-accent btn-accent-sm" onclick="saveField({ticket_transcripts: toggleVal('tk-transcripts'), ticket_log_channel: intVal('.tk-log-channel')})"><i class="bi bi-check-circle"></i> Guardar</button>
+    </div>
+</div>
+<div class="glass-card p-4 mt-4 animate-fade-in-up">
+    <div class="card-header-custom">
+        <h5><i class="bi bi-ticket-perforated" style="color:var(--accent);"></i> Tickets Recientes</h5>
+        <span class="badge-premium blue" id="tk-count">0 activos</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table-premium">
+            <thead><tr><th>ID</th><th>Usuario</th><th>Asunto</th><th>Estado</th><th>Fecha</th><th>Accion</th></tr></thead>
+            <tbody id="tk-table-body"></tbody>
+        </table>
     </div>
 </div>
 </div>
@@ -439,16 +463,25 @@
 
 {% elif module == 'reaction-roles' %}
 <div id="section-reaction-roles">
-<div class="page-header"><h1><i class="bi bi-emoji-smile"></i> Reaction Roles</h1><p>Roles por reacciones y botones.</p></div>
-<div class="config-card">
-    <p class="text-muted">Usa el comando <code>/reactionrole</code> en Discord para crear y gestionar reaction roles.</p>
-    <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);">
-        <p style="font-weight:600;margin-bottom:8px;"><i class="bi bi-info-circle" style="color:var(--accent);"></i> Como funciona:</p>
-        <ol style="padding-left:20px;color:var(--text-secondary);font-size:.85rem;display:flex;flex-direction:column;gap:6px;">
-            <li>Crea un mensaje en cualquier canal</li>
-            <li>Usa <code>/reactionrole create</code> para vincular reacciones a roles</li>
-            <li>Los usuarios reaccionan y obtienen el rol automaticamente</li>
-        </ol>
+<div class="page-header"><h1><i class="bi bi-emoji-smile"></i> Reaction Roles</h1><p>Gestiona roles por reaccion desde el dashboard.</p></div>
+<div class="config-grid">
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-list" style="color:var(--accent);"></i> Roles por Reaccion</div>
+        <div id="rr-list" class="mb-3"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" class="form-input rr-msg-id" placeholder="ID del mensaje" style="flex:1;">
+            <input type="text" class="form-input rr-emoji" placeholder="Emoji" style="flex:1;">
+            <input type="text" class="form-input rr-role-id" placeholder="ID del rol" style="flex:1;">
+            <button class="btn-accent btn-accent-sm" onclick="addReactionRole()"><i class="bi bi-plus-lg"></i></button>
+        </div>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-stopwatch" style="color:var(--purple);"></i> Estado</div>
+        <div class="mb-3" style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:.9rem;">Sistema activo</span>
+            <div class="form-toggle {% if config.reaction_roles_enabled %}active{% endif %}" onclick="this.classList.toggle('active')" id="rr-enabled"></div>
+        </div>
+        <button class="btn-accent btn-accent-sm" onclick="saveField({reaction_roles_enabled: toggleVal('rr-enabled')})"><i class="bi bi-check-circle"></i> Guardar</button>
     </div>
 </div>
 </div>
@@ -476,16 +509,27 @@
 
 {% elif module == 'giveaways' %}
 <div id="section-giveaways">
-<div class="page-header"><h1><i class="bi bi-gift"></i> Giveaways</h1><p>Crea y gestiona sorteos en tu servidor.</p></div>
-<div class="config-card">
-    <p class="text-muted">Usa el comando <code>/giveaway</code> en Discord para crear y gestionar sorteos.</p>
-    <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:var(--radius-md);">
-        <p style="font-weight:600;margin-bottom:8px;"><i class="bi bi-info-circle" style="color:var(--accent);"></i> Comandos disponibles:</p>
-        <ul style="padding-left:20px;color:var(--text-secondary);font-size:.85rem;display:flex;flex-direction:column;gap:6px;">
-            <li><code>/giveaway start</code> — Inicia un sorteo</li>
-            <li><code>/giveaway reroll</code> — Vuelve a sortear</li>
-            <li><code>/giveaway end</code> — Termina un sorteo</li>
-        </ul>
+<div class="page-header"><h1><i class="bi bi-gift"></i> Giveaways</h1><p>Gestiona sorteos desde el dashboard.</p></div>
+<div class="config-grid">
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-trophy" style="color:var(--yellow);"></i> Sorteos Activos</div>
+        <div id="gw-list"></div>
+        <div class="form-group mt-3">
+            <label class="form-label">Nuevo sorteo</label>
+            <input type="text" class="form-input gw-prize" placeholder="Premio">
+        </div>
+        <div style="display:flex;gap:8px;">
+            <input type="number" class="form-input gw-duration" placeholder="Duracion (min)" style="flex:1;" value="60">
+            <input type="number" class="form-input gw-winners" placeholder="Ganadores" style="flex:1;" value="1">
+            <input type="text" class="form-input gw-channel" placeholder="ID del canal" style="flex:1;">
+        </div>
+        <button class="btn-accent btn-accent-sm mt-3" onclick="startGiveaway()"><i class="bi bi-gift"></i> Crear Sorteo</button>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-gear" style="color:var(--accent);"></i> Configuracion</div>
+        <div class="form-group"><label class="form-label">Duracion default (minutos)</label><input type="number" class="form-input gw-default-dur" value="{{ config.giveaway_default_duration or 60 }}" min="1"></div>
+        <div class="form-group"><label class="form-label">Maximo de ganadores</label><input type="number" class="form-input gw-max-winners" value="{{ config.giveaway_max_winners or 20 }}" min="1"></div>
+        <button class="btn-accent btn-accent-sm" onclick="saveField({giveaway_default_duration: intVal('.gw-default-dur'), giveaway_max_winners: intVal('.gw-max-winners')})"><i class="bi bi-check-circle"></i> Guardar</button>
     </div>
 </div>
 </div>
@@ -502,6 +546,11 @@
         </div>
         <div class="form-group"><label class="form-label">Canal de sugerencias</label><input type="text" class="form-input sg-channel" placeholder="ID del canal" value="{{ config.suggested_channel or '' }}"></div>
         <button class="btn-accent btn-accent-sm" onclick="saveField({suggestions_enabled: toggleVal('sg-enabled'), suggested_channel: getInput('.sg-channel')})"><i class="bi bi-check-circle"></i> Guardar</button>
+    </div>
+    <div class="config-card">
+        <div class="config-card-title"><i class="bi bi-list" style="color:var(--purple);"></i> Sugerencias Recientes</div>
+        <div id="sg-list"></div>
+        <div class="form-help mt-2">Usa `/suggest` en Discord para crear sugerencias. Aprueba o rechaza desde aqui.</div>
     </div>
 </div>
 </div>
@@ -679,6 +728,174 @@ function saveLogsConfig() {
     saveField(data);
 }
 
+// ─── Tickets Table ──────────────────────────────────────────────────
+function loadTickets() {
+    const tbody = document.getElementById('tk-table-body');
+    if (!tbody) return;
+    fetch(`/api/guild/${GUILD_ID}/tickets`)
+    .then(r => r.json())
+    .then(tickets => {
+        tbody.innerHTML = '';
+        const count = document.getElementById('tk-count');
+        const active = (tickets || []).filter(t => t.status === 'open').length;
+        if (count) count.textContent = active + ' activos';
+        if (!tickets || tickets.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:2rem;color:var(--text-muted);">Sin tickets</td></tr>';
+            return;
+        }
+        tickets.slice(0, 20).forEach(t => {
+            const statusClass = t.status === 'open' ? 'green' : t.status === 'closed' ? 'red' : 'yellow';
+            const statusLabel = t.status === 'open' ? 'Abierto' : t.status === 'closed' ? 'Cerrado' : t.status;
+            tbody.innerHTML += `<tr>
+                <td><code>#${t.id}</code></td>
+                <td><code>${t.user_id}</code></td>
+                <td>${t.subject || 'Soporte'}</td>
+                <td><span class="badge-premium ${statusClass}">${statusLabel}</span></td>
+                <td>${t.created_at ? new Date(t.created_at * 1000).toLocaleDateString() : 'N/A'}</td>
+                <td>${t.status === 'open' ? `<button class="btn-icon danger" onclick="closeTicket(${t.id})" title="Cerrar"><i class="bi bi-x-lg"></i></button>` : ''}</td>
+            </tr>`;
+        });
+    }).catch(() => showToast('', 'Error al cargar tickets', 'error'));
+}
+
+// ─── Recent Warns (Overview) ───────────────────────────────────────
+function loadRecentWarns() {
+    const tbody = document.getElementById('ov-warns-body');
+    if (!tbody) return;
+    fetch(`/api/guild/${GUILD_ID}/warnings`)
+    .then(r => r.json())
+    .then(warns => {
+        tbody.innerHTML = '';
+        if (!warns || warns.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="padding:1rem;color:var(--text-muted);">Sin warns</td></tr>';
+            return;
+        }
+        warns.slice(0, 5).forEach(w => {
+            const ts = w.timestamp ? new Date(w.timestamp * 1000).toLocaleDateString() : '';
+            tbody.innerHTML += `<tr><td><code>${w.user_id}</code></td><td><code>${w.moderator_id}</code></td><td>${w.reason || ''}</td><td>${ts}</td></tr>`;
+        });
+    }).catch(() => {}); // silent fail
+}
+
+function closeTicket(id) {
+    if (!confirm('Cerrar este ticket?')) return;
+    fetch(`/api/guild/${GUILD_ID}/ticket/${id}/close`, {method:'POST'})
+    .then(r=>r.json()).then(d=>{if(d.success){loadTickets();showToast('','Ticket cerrado','success')}});
+}
+
+// ─── Reaction Roles ─────────────────────────────────────────────────
+function loadReactionRoles() {
+    const container = document.getElementById('rr-list');
+    if (!container) return;
+    fetch(`/api/guild/${GUILD_ID}/reaction-roles`)
+    .then(r => r.json())
+    .then(roles => {
+        container.innerHTML = '';
+        if (!roles || roles.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:.85rem;">Sin roles configurados</p></div>';
+            return;
+        }
+        roles.forEach(r => {
+            container.innerHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:6px;">
+                <span>Msg: <code>${r.message_id}</code> ${r.emoji} → <code>${r.role_id}</code></span>
+                <button class="btn-icon danger" onclick="removeReactionRole(${r.id})"><i class="bi bi-trash"></i></button>
+            </div>`;
+        });
+    });
+}
+
+function addReactionRole() {
+    const msgId = document.querySelector('.rr-msg-id')?.value;
+    const emoji = document.querySelector('.rr-emoji')?.value;
+    const roleId = document.querySelector('.rr-role-id')?.value;
+    if (!msgId || !emoji || !roleId) return showToast('', 'Completa todos los campos', 'warning');
+    fetch(`/api/guild/${GUILD_ID}/reaction-roles`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'add', message_id:msgId, emoji:emoji, role_id:roleId})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success) { loadReactionRoles(); showToast('','Reaction role agregado','success'); }
+    });
+}
+
+function removeReactionRole(id) {
+    if (!confirm('Eliminar?')) return;
+    fetch(`/api/guild/${GUILD_ID}/reaction-roles`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'remove', id})
+    }).then(r=>r.json()).then(d=>{if(d.success){loadReactionRoles();showToast('','Eliminado','success')}});
+}
+
+// ─── Giveaways ──────────────────────────────────────────────────────
+function loadGiveaways() {
+    const container = document.getElementById('gw-list');
+    if (!container) return;
+    fetch(`/api/guild/${GUILD_ID}/giveaways`)
+    .then(r => r.json())
+    .then(gws => {
+        container.innerHTML = '';
+        if (!gws || gws.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:.85rem;">Sin sorteos activos</p></div>';
+            return;
+        }
+        gws.forEach(g => {
+            const endDate = g.end_time ? new Date(g.end_time * 1000).toLocaleString() : 'N/A';
+            container.innerHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:6px;">
+                <div><strong>${g.prize}</strong><br><span style="font-size:.75rem;color:var(--text-muted);">Termina: ${endDate} | Ganadores: ${g.winners||1}</span></div>
+                <button class="btn-icon danger" onclick="endGiveaway(${g.id})" title="Terminar"><i class="bi bi-stop-fill"></i></button>
+            </div>`;
+        });
+    });
+}
+
+function startGiveaway() {
+    const prize = document.querySelector('.gw-prize')?.value;
+    const duration = document.querySelector('.gw-duration')?.value || 60;
+    const winners = document.querySelector('.gw-winners')?.value || 1;
+    const channel = document.querySelector('.gw-channel')?.value;
+    if (!prize || !channel) return showToast('', 'Completa premio y canal', 'warning');
+    fetch(`/api/guild/${GUILD_ID}/giveaway`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'start', prize, duration:parseInt(duration)*60, winners:parseInt(winners), channel_id:channel})
+    }).then(r=>r.json()).then(d=>{
+        if(d.success) { showToast('','Sorteo creado!','success'); loadGiveaways(); }
+        else showToast('','Error al crear sorteo','error');
+    });
+}
+
+function endGiveaway(id) {
+    if (!confirm('Terminar sorteo?')) return;
+    fetch(`/api/guild/${GUILD_ID}/giveaway`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'end', id})
+    }).then(r=>r.json()).then(d=>{if(d.success){loadGiveaways();showToast('','Sorteo terminado','success')}});
+}
+
+// ─── Suggestions ────────────────────────────────────────────────────
+function loadSuggestions() {
+    const container = document.getElementById('sg-list');
+    if (!container) return;
+    fetch(`/api/guild/${GUILD_ID}/suggestions`)
+    .then(r => r.json())
+    .then(sgs => {
+        container.innerHTML = '';
+        if (!sgs || sgs.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:1rem;"><p style="font-size:.85rem;">Sin sugerencias</p></div>';
+            return;
+        }
+        sgs.slice(0, 10).forEach(s => {
+            const statusClass = s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : 'yellow';
+            container.innerHTML += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:var(--radius-sm);margin-top:6px;">
+                <div><span style="font-weight:500;">${s.content||'Sugerencia'}</span><br><span style="font-size:.75rem;color:var(--text-muted);">Por <code>${s.user_id}</code></span></div>
+                <span class="badge-premium ${statusClass}">${s.status||'pending'}</span>
+            </div>`;
+        });
+    });
+}
+
 // ─── Backup ──────────────────────────────────────────────────────────
 function exportConfig() {
     fetch(`/api/guild/${GUILD_ID}/config`)
@@ -735,6 +952,13 @@ document.addEventListener('DOMContentLoaded', function() {
     loadOverviewStats();
     loadShopItems();
     loadRepRoles();
+    loadReactionRoles();
+    loadGiveaways();
+    loadSuggestions();
+    loadTickets();
+    loadRecentWarns();
 });
+
+
 </script>
 {% endblock %}

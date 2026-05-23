@@ -9,6 +9,12 @@ from database.db import Database
 
 app = Flask(__name__)
 app.secret_key = dash_config.SECRET_KEY
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=False,  # True en produccion con HTTPS
+    PERMANENT_SESSION_LIFETIME=86400,
+)
 
 DISCORD_API = dash_config.DISCORD_API_ENDPOINT
 
@@ -403,7 +409,7 @@ def server_overview(guild_id):
     user = session.get("user")
     user_id = int(user["id"])
     guilds = _get_guilds_with_perms(session["access_token"], user_id)
-    guild = next((g for g in guilds if str(g["id"]) == str(guild_id)), None)
+    guild = next((g for g in guilds if str(g["id"]) == str(guild_id) and g["can_view"]), None)
     if not guild:
         return render_template("login.html", error="No tienes acceso a ese servidor.")
     config = _get_guild_config(guild_id)
@@ -415,7 +421,7 @@ def server_module(guild_id, module):
     user = session.get("user")
     user_id = int(user["id"])
     guilds = _get_guilds_with_perms(session["access_token"], user_id)
-    guild = next((g for g in guilds if str(g["id"]) == str(guild_id)), None)
+    guild = next((g for g in guilds if str(g["id"]) == str(guild_id) and g["can_view"]), None)
     if not guild:
         return render_template("login.html", error="No tienes acceso a ese servidor.")
     valid = ["moderation", "automod", "antinuke", "tickets", "welcome", "levels", "economy", "reputation", "logs", "reaction-roles", "verification", "giveaways", "suggestions", "general"]
@@ -517,6 +523,256 @@ def api_guild_rep_roles(guild_id):
         return jsonify({"success": True})
     return jsonify(_fetch_rep_roles(guild_id))
 
+@app.route("/api/guild/<guild_id>/members", methods=["GET"])
+@auth_required
+def api_guild_members(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.fetchall("SELECT user_id, level, total_xp, reputation, balance FROM members WHERE guild_id = ? ORDER BY total_xp DESC LIMIT 100", guild_id)
+            return [dict(r) for r in rows]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/warn", methods=["POST"])
+@auth_required
+def api_guild_warn(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    data = request.json
+    user_id = data.get("user_id")
+    reason = data.get("reason", "Sin motivo")
+    mod_id = session["user"]["id"]
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            c = await db.fetchone("SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
+            case = (c["c"] if c else 0) + 1
+            await db.execute("INSERT INTO warnings (guild_id, user_id, moderator_id, reason, case_number, active) VALUES (?, ?, ?, ?, ?, 1)", guild_id, user_id, mod_id, reason, case)
+            return {"success": True, "case": case}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/warn/<int:warn_id>", methods=["DELETE"])
+@auth_required
+def api_guild_warn_delete(guild_id, warn_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            await db.execute("UPDATE warnings SET active = 0 WHERE id = ? AND guild_id = ?", warn_id, guild_id)
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/warns/clear", methods=["POST"])
+@auth_required
+def api_guild_warns_clear(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    user_id = request.json.get("user_id")
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            if user_id:
+                await db.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND user_id = ? AND active = 1", guild_id, user_id)
+            else:
+                await db.execute("UPDATE warnings SET active = 0 WHERE guild_id = ? AND active = 1", guild_id)
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Reaction Roles API ───────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/reaction-roles", methods=["GET", "POST"])
+@auth_required
+def api_guild_reaction_roles(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    if request.method == "POST":
+        guild = _check_admin_access(guild_id)
+        if not guild:
+            return jsonify({"error": "Se requieren permisos de administrador"}), 403
+        data = request.json or {}
+        action = data.get("action")
+        async def _do():
+            db = Database()
+            await db.connect()
+            try:
+                if action == "add":
+                    msg_id = int(data.get("message_id", 0))
+                    role_id = int(data.get("role_id", 0))
+                    emoji = data.get("emoji", "⭐")
+                    await db.add_reaction_role(int(guild_id), 0, msg_id, role_id, emoji)
+                elif action == "remove":
+                    await db.remove_reaction_role(int(data.get("id", 0)), int(guild_id))
+                return {"success": True}
+            finally:
+                await db.close()
+        return jsonify(_run_async(_do()))
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.get_reaction_roles(int(guild_id))
+            return [dict(r) for r in (rows or [])]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Giveaways API ───────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/giveaways", methods=["GET"])
+@auth_required
+def api_guild_giveaways(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.get_guild_giveaways(int(guild_id))
+            return [dict(r) for r in (rows or [])]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/giveaway", methods=["POST"])
+@auth_required
+def api_guild_giveaway(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    data = request.json or {}
+    action = data.get("action")
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            if action == "start":
+                prize = data.get("prize", "Sorteo")
+                duration = int(data.get("duration", 3600))
+                winners = int(data.get("winners", 1))
+                channel_id = int(data.get("channel_id", 0))
+                end_time = time.time() + duration
+                await db.create_giveaway(int(guild_id), channel_id, 0, prize, winners, end_time, int(session["user"]["id"]))
+            elif action == "end":
+                gw_id = int(data.get("id", 0))
+                row = await db.fetchone("SELECT message_id FROM giveaways WHERE id = ? AND guild_id = ?", gw_id, guild_id)
+                if row:
+                    await db.end_giveaway(row["message_id"])
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Suggestions API ─────────────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/suggestions", methods=["GET"])
+@auth_required
+def api_guild_suggestions(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.get_guild_suggestions(int(guild_id))
+            return [dict(r) for r in (rows or [])]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+# ─── Warns API (limit param) ─────────────────────────────────────────
+@app.route("/api/guild/<guild_id>/warns", methods=["GET"])
+@auth_required
+def api_guild_warns(guild_id):
+    if not _check_guild_access(guild_id):
+        return jsonify({"error": "Acceso denegado"}), 403
+    limit = request.args.get("limit", 50, type=int)
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            rows = await db.fetchall("SELECT w.* FROM warnings w WHERE w.guild_id = ? AND w.active = 1 ORDER BY w.timestamp DESC LIMIT ?", guild_id, limit)
+            return [dict(r) for r in rows]
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/ticket/create", methods=["POST"])
+@auth_required
+def api_guild_ticket_create(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    data = request.json
+    user_id_val = data.get("user_id", session["user"]["id"])
+    subject = data.get("subject", "Soporte")
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            await db.execute("INSERT INTO tickets (guild_id, user_id, subject, status, created_at) VALUES (?, ?, ?, 'open', ?)", guild_id, user_id_val, subject, time.time())
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/ticket/<int:ticket_id>/close", methods=["POST"])
+@auth_required
+def api_guild_ticket_close(guild_id, ticket_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            await db.execute("UPDATE tickets SET status = 'closed' WHERE id = ? AND guild_id = ?", ticket_id, guild_id)
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
+@app.route("/api/guild/<guild_id>/rep/manage", methods=["POST"])
+@auth_required
+def api_guild_rep_manage(guild_id):
+    guild = _check_admin_access(guild_id)
+    if not guild:
+        return jsonify({"error": "Se requieren permisos de administrador"}), 403
+    data = request.json
+    action = data.get("action")
+    target_id = data.get("user_id")
+    amount = data.get("amount", 0)
+    async def _do():
+        db = Database()
+        await db.connect()
+        try:
+            if action == "set":
+                await db.update_member(int(guild_id), int(target_id), reputation=amount)
+            elif action == "add":
+                await db.add_reputation(int(guild_id), int(target_id), int(amount), session["user"]["id"])
+            elif action == "remove":
+                await db.add_reputation(int(guild_id), int(target_id), -int(amount), session["user"]["id"])
+            elif action == "reset":
+                await db.update_member(int(guild_id), int(target_id), reputation=0)
+            return {"success": True}
+        finally:
+            await db.close()
+    return jsonify(_run_async(_do()))
+
 @app.route("/api/user/guilds")
 @auth_required
 def api_user_guilds():
@@ -533,7 +789,9 @@ def not_found(e):
 
 @app.errorhandler(500)
 def server_error(e):
-    return "Error interno del servidor", 500
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Error interno del servidor"}), 500
+    return render_template("login.html", error="Error interno del servidor. Intenta de nuevo."), 500
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

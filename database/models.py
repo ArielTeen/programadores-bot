@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     claimer_id INTEGER DEFAULT 0,
     status TEXT DEFAULT 'open',
     category TEXT DEFAULT 'general',
+    subject TEXT DEFAULT 'Soporte',
     created_at REAL,
     closed_at REAL,
     rating INTEGER DEFAULT 0,
