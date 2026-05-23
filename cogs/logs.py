@@ -1,151 +1,173 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
+import datetime
 import config
-from utils.embeds import success_embed, error_embed, info_embed, PremiumEmbed
+from utils.embeds import GuildEmbed
+from utils.helpers import send_log
 
 
 class Logs(commands.Cog):
-    """📝 Sistema de logs — mensajes, miembros, moderación, etc."""
+    """📝 Logs del servidor — mensajes, miembros, canales, moderación."""
 
     def __init__(self, bot):
         self.bot = bot
+
+    def format_time(self, dt=None):
+        return (dt or discord.utils.utcnow()).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
         if message.author.bot or not message.guild:
             return
-        embed = PremiumEmbed(title="Mensaje eliminado", color=config.ERROR_COLOR)
-        embed.add_field(name="Autor", value=message.author.mention, inline=True)
-        embed.add_field(name="Canal", value=message.channel.mention, inline=True)
-        embed.add_field(name="Contenido", value=message.content[:1000] or "Sin contenido", inline=False)
-        await self._send(message.guild.id, "messages", embed)
+        guild = message.guild
+        lang = await self.bot.get_lang(guild.id)
+        await self._log_event(guild, "message_delete", message.channel, desc=(
+            f"**{self.bot.t(lang, 'logs.author_field')}:** {message.author} (`{message.author.id}`)\n"
+            f"**{self.bot.t(lang, 'logs.channel_field')}:** {message.channel.mention}\n"
+            f"**{self.bot.t(lang, 'logs.content_field')}:** {message.content or f'*{self.bot.t(lang, "logs.no_content")}*'}\n"
+            f"**{self.bot.t(lang, 'panel.created')}:** {self.format_time(message.created_at)}"
+        ), color=config.COLORS["red"], author=message.author)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        if before.author.bot or not before.guild or before.content == after.content:
+        if before.author.bot or not before.guild:
             return
-        embed = PremiumEmbed(title="Mensaje editado", color=config.WARNING_COLOR)
-        embed.add_field(name="Autor", value=before.author.mention, inline=True)
-        embed.add_field(name="Canal", value=before.channel.mention, inline=True)
-        embed.add_field(name="Antes", value=before.content[:500] or "N/A", inline=False)
-        embed.add_field(name="Después", value=after.content[:500] or "N/A", inline=False)
-        await self._send(before.guild.id, "messages", embed)
+        if before.content == after.content:
+            return
+        guild = before.guild
+        lang = await self.bot.get_lang(guild.id)
+        await self._log_event(guild, "message_edit", before.channel, desc=(
+            f"**{self.bot.t(lang, 'logs.author_field')}:** {before.author} (`{before.author.id}`)\n"
+            f"**{self.bot.t(lang, 'logs.channel_field')}:** {before.channel.mention}\n"
+            f"**{self.bot.t(lang, 'logs.before_field')}:** {before.content or f'*{self.bot.t(lang, "logs.no_content")}*'}\n"
+            f"**{self.bot.t(lang, 'logs.after_field')}:** {after.content or f'*{self.bot.t(lang, "logs.no_content")}*'}\n"
+            f"[{self.bot.t(lang, 'reports.jump_to_msg')}]({after.jump_url})"
+        ), color=config.COLORS["yellow"], author=before.author)
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        guild = member.guild
+        lang = await self.bot.get_lang(guild.id)
+        created = (discord.utils.utcnow() - member.created_at).days
+        desc = (
+            f"**{self.bot.t(lang, 'logs.user_field')}:** {member} (`{member.id}`)\n"
+            f"**{self.bot.t(lang, 'welcome.account_created')}:** {self.format_time(member.created_at)} ({created} {self.bot.t(lang, 'common_time.days')})\n"
+            f"**{self.bot.t(lang, 'welcome.members_field')}:** {len(guild.members)}"
+        )
+        await self._log_event(guild, "member_join", None, desc=desc, color=config.COLORS["green"], author=member)
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        guild = member.guild
+        lang = await self.bot.get_lang(guild.id)
+        joined = self.format_time(member.joined_at) if member.joined_at else self.bot.t(lang, "common.na")
+        roles = ", ".join(r.mention for r in member.roles if r.name != "@everyone") or self.bot.t(lang, "common.none")
+        desc = (
+            f"**{self.bot.t(lang, 'logs.user_field')}:** {member} (`{member.id}`)\n"
+            f"**{self.bot.t(lang, 'welcome.members_now')}:** {joined}\n"
+            f"**{self.bot.t(lang, 'panel.roles')}:** {roles}"
+        )
+        await self._log_event(guild, "member_remove", None, desc=desc, color=config.COLORS["orange"], author=member)
+
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild, user):
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.user_field')}:** {user} (`{user.id}`)"
+        await self._log_event(guild, "member_ban", None, desc=desc, color=config.COLORS["dark_red"], author=user)
+
+    @commands.Cog.listener()
+    async def on_member_unban(self, guild, user):
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.user_field')}:** {user} (`{user.id}`)"
+        await self._log_event(guild, "member_unban", None, desc=desc, color=config.COLORS["green"], author=user)
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
-        embed = PremiumEmbed(title="Canal creado", color=config.SUCCESS_COLOR)
-        embed.add_field(name="Nombre", value=channel.mention, inline=True)
-        embed.add_field(name="Tipo", value=str(channel.type), inline=True)
-        await self._send(channel.guild.id, "channels", embed)
+        guild = channel.guild
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.channel_field')}:** {channel.mention} (`{channel.id}`)\n**{self.bot.t(lang, 'logs.type_field')}:** {str(channel.type)}"
+        await self._log_event(guild, "channel_create", None, desc=desc, color=config.COLORS["green"])
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
-        embed = PremiumEmbed(title="Canal eliminado", color=config.ERROR_COLOR)
-        embed.add_field(name="Nombre", value=channel.name, inline=True)
-        embed.add_field(name="Tipo", value=str(channel.type), inline=True)
-        await self._send(channel.guild.id, "channels", embed)
+        guild = channel.guild
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.channel_field')}:** #{channel.name} (`{channel.id}`)\n**{self.bot.t(lang, 'logs.type_field')}:** {str(channel.type)}"
+        await self._log_event(guild, "channel_delete", None, desc=desc, color=config.COLORS["red"])
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role):
-        embed = PremiumEmbed(title="Rol creado", color=config.SUCCESS_COLOR)
-        embed.add_field(name="Nombre", value=role.mention, inline=True)
-        embed.add_field(name="Color", value=str(role.color), inline=True)
-        await self._send(role.guild.id, "roles", embed)
+        guild = role.guild
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.name_field')}:** {role.mention} (`{role.id}`)\n**{self.bot.t(lang, 'logs.color_field')}:** {role.color}"
+        await self._log_event(guild, "role_create", None, desc=desc, color=config.COLORS["green"])
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role):
-        embed = PremiumEmbed(title="Rol eliminado", color=config.ERROR_COLOR)
-        embed.add_field(name="Nombre", value=role.name, inline=True)
-        await self._send(role.guild.id, "roles", embed)
+        guild = role.guild
+        lang = await self.bot.get_lang(guild.id)
+        desc = f"**{self.bot.t(lang, 'logs.name_field')}:** @{role.name} (`{role.id}`)"
+        await self._log_event(guild, "role_delete", None, desc=desc, color=config.COLORS["red"])
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
             return
+        guild = member.guild
+        lang = await self.bot.get_lang(guild.id)
+        action = []
         if before.channel != after.channel:
-            if after.channel and not before.channel:
-                embed = PremiumEmbed(title="Conectado a voz", color=config.SUCCESS_COLOR)
-                embed.add_field(name="Usuario", value=member.mention, inline=True)
-                embed.add_field(name="Canal", value=after.channel.mention, inline=True)
-                await self._send(member.guild.id, "voice", embed)
-            elif before.channel and not after.channel:
-                embed = PremiumEmbed(title="Desconectado de voz", color=config.ERROR_COLOR)
-                embed.add_field(name="Usuario", value=member.mention, inline=True)
-                embed.add_field(name="Canal", value=before.channel.mention, inline=True)
-                await self._send(member.guild.id, "voice", embed)
-
-    async def _send(self, guild_id, module, embed):
-        guild = self.bot.get_guild(guild_id)
-        if not guild:
+            if after.channel:
+                action.append(f"**{self.bot.t(lang, 'logs.voice_connected')}** → {after.channel.mention}")
+            if before.channel:
+                action.append(f"**{self.bot.t(lang, 'logs.voice_disconnected')}** → {before.channel.mention}")
+        if before.mute != after.mute and after.mute:
+            action.append("🔇 **Server mute**")
+        if before.deaf != after.deaf and after.deaf:
+            action.append("🔇 **Server deaf**")
+        if before.self_mute != after.self_mute and after.self_mute:
+            action.append("🎤 **Self-mute**")
+        if before.self_deaf != after.self_deaf and after.self_deaf:
+            action.append("🎤 **Self-deaf**")
+        if before.self_stream != after.self_stream and after.self_stream:
+            action.append("🖥️ Streaming")
+        if before.self_video != after.self_video and after.self_video:
+            action.append("📷 Camera")
+        if not action:
             return
-        channels = await self.bot.db.get_log_channels(guild_id)
-        ch_id = channels.get(module)
-        if ch_id:
-            ch = guild.get_channel(ch_id)
-            if ch and ch.permissions_for(guild.me).send_messages:
-                try:
-                    await ch.send(embed=embed)
-                except:
-                    pass
+        desc = f"**{self.bot.t(lang, 'logs.user_field')}:** {member} (`{member.id}`)\n" + "\n".join(action)
+        await self._log_event(guild, "voice_state", None, desc=desc, color=config.COLORS["blue"], author=member)
 
-    # ── Comandos ─────────────────────────────────────────────────────────────
-    logs = app_commands.Group(name="logs", description="Configurar logs")
-
-    @logs.command(name="setup", description="Configurar canal de logs")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(module="Módulo", channel="Canal")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def logs_setup(self, interaction: discord.Interaction, module: str, channel: discord.TextChannel):
-        await interaction.response.defer()
-        await self.bot.db.set_log_channel(interaction.guild.id, module, channel.id)
-        await interaction.followup.send(embed=success_embed("📝 Log configurado", f"{module} → {channel.mention}"))
-
-    @logs_setup.autocomplete("module")
-    async def logs_module_ac(self, interaction: discord.Interaction, current: str):
-        opts = ["messages", "members", "moderation", "channels", "roles", "voice", "invites", "automod", "antinuke", "commands", "tickets", "reputation"]
-        return [app_commands.Choice(name=m, value=m) for m in opts if current.lower() in m.lower()]
-
-    @logs.command(name="enable", description="Activar módulo de logs")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(module="Módulo")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def logs_enable(self, interaction: discord.Interaction, module: str):
-        await interaction.response.defer()
-        await self.bot.db.toggle_log_module(interaction.guild.id, module, True)
-        await interaction.followup.send(embed=success_embed("✅ Log activado", module))
-
-    @logs.command(name="disable", description="Desactivar módulo de logs")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(module="Módulo")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def logs_disable(self, interaction: discord.Interaction, module: str):
-        await interaction.response.defer()
-        await self.bot.db.toggle_log_module(interaction.guild.id, module, False)
-        await interaction.followup.send(embed=success_embed("❌ Log desactivado", module))
-
-    @logs.command(name="test", description="Probar logs")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def logs_test(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        embed = PremiumEmbed(title="Test de logs", description="Si ves esto, los logs funcionan.", color=config.SUCCESS_COLOR)
-        await self._send(interaction.guild.id, "messages", embed)
-        await interaction.followup.send(embed=success_embed("🧪 Test enviado"))
-
-    @logs.command(name="modules", description="Ver módulos de logs activos")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def logs_modules(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        channels = await self.bot.db.get_log_channels(interaction.guild.id)
-        if not channels:
-            return await interaction.followup.send(embed=info_embed("📝", "No hay logs configurados."))
-        embed = PremiumEmbed(title="Módulos de logs", color=config.EMBED_COLOR)
-        for mod, ch_id in channels.items():
-            ch = interaction.guild.get_channel(ch_id)
-            embed.add_field(name=mod, value=ch.mention if ch else "❌", inline=False)
-        await interaction.followup.send(embed=embed)
+    async def _log_event(self, guild, event_type, channel=None, desc="", color=None, author=None):
+        log_channels = await self.bot.db.get_log_channels(guild.id)
+        log_ch_id = log_channels.get(event_type)
+        if not log_ch_id:
+            log_ch_id = log_channels.get("all")
+            if not log_ch_id:
+                return
+        log_ch = guild.get_channel(log_ch_id)
+        if not log_ch:
+            return
+        lang = await self.bot.get_lang(guild.id)
+        titles = {
+            "message_delete": self.bot.t(lang, "logs.message_delete"),
+            "message_edit": self.bot.t(lang, "logs.message_edit"),
+            "member_join": self.bot.t(lang, "logs.member_join"),
+            "member_remove": self.bot.t(lang, "logs.member_remove"),
+            "member_ban": self.bot.t(lang, "logs.member_ban"),
+            "member_unban": self.bot.t(lang, "logs.member_unban"),
+            "channel_create": self.bot.t(lang, "logs.channel_create"),
+            "channel_delete": self.bot.t(lang, "logs.channel_delete"),
+            "role_create": self.bot.t(lang, "logs.role_create"),
+            "role_delete": self.bot.t(lang, "logs.role_delete"),
+            "voice_state": self.bot.t(lang, "logs.voice_state"),
+        }
+        embed = GuildEmbed(title=titles.get(event_type, "#️ Log"), description=desc, color=color or config.EMBED_COLOR, guild=guild)
+        if channel:
+            embed.add_field(name=self.bot.t(lang, "logs.channel"), value=channel.mention, inline=False)
+        if author:
+            embed.set_author(name=self.bot.t(lang, "logs.user") if author else "", icon_url=author.display_avatar.url)
+        await log_ch.send(embed=embed)
 
 
 async def setup(bot):

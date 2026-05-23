@@ -1,17 +1,17 @@
 import pytest, os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.embeds import PremiumEmbed
+from utils.embeds import GuildEmbed
 from utils.helpers import format_duration, parse_duration, get_level_xp, get_level_from_xp, clean_text
 
 def test_premium_embed_defaults():
-    embed = PremiumEmbed(title="Test")
+    embed = GuildEmbed(title="Test")
     assert embed.color.value == 0x7C3AED
-    embed.set_standard_footer()
-    assert "Comunidad de Programadores" in embed.footer.text
+    embed.set_standard_footer(guild="Test Guild")
+    assert embed.footer.text == "Test Guild"
 
 def test_premium_embed_custom():
-    embed = PremiumEmbed(title="Custom", color=0x00FF00)
+    embed = GuildEmbed(title="Custom", color=0x00FF00)
     assert embed.color.value == 0x00FF00
     embed.set_footer(text="Custom Footer")
     assert embed.footer.text == "Custom Footer"

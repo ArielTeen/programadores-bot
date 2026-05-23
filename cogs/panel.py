@@ -1,201 +1,126 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import time
 import config
-from utils.embeds import PremiumEmbed, panel_embed, send_ephemeral
-from utils.paginator import ButtonPaginator
+from utils.embeds import GuildEmbed, info_embed
+from utils.paginator import ReactionPaginator
+import math
 
 
 class Panel(commands.Cog):
-    """Panel de control interactivo del servidor."""
+    """📋 Panel del servidor — módulos, roles, economía, moderación."""
 
     def __init__(self, bot):
         self.bot = bot
-        self._panel_lock = {}
 
-    @app_commands.command(name="panel", description="Abrir panel de control interactivo del servidor")
+    @app_commands.command(name="panel", description="Panel de administración del servidor")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def panel(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
 
-        guild = interaction.guild
-        config_data = await self.bot.db.get_guild(guild.id)
+        g = await self.bot.db.get_guild(interaction.guild.id)
 
-        pages = await self._build_pages(interaction, config_data)
-        pag = ButtonPaginator(pages, interaction, timeout=120, only_author=True)
-        await pag.start()
-
-    async def _build_pages(self, interaction, config_data):
-        guild = interaction.guild
-        bot = self.bot
         pages = []
+        colors = {
+            "economy": config.COLORS["green"],
+            "moderation": config.COLORS["red"],
+            "levels": config.COLORS["purple"],
+            "tickets": config.COLORS["blue"],
+            "reaction_roles": config.COLORS["pink"],
+            "logging": config.COLORS["gray"],
+        }
 
-        overview = PremiumEmbed(
-            title=f"Panel de Control - {guild.name}",
-            description=(
-                f"\u2500" * 30 + "\n\n"
-                f"**Servidor**\n"
-                f"`{guild.name}` (`{guild.id}`)\n"
-                f"**{guild.member_count:,}** miembros  |  Propietario: {guild.owner.mention if guild.owner else 'N/A'}\n"
-                f"Creado <t:{int(guild.created_at.timestamp())}:R>\n\n"
-                f"**Bot**\n"
-                f"Ping: **{round(bot.latency * 1000)}ms**\n"
-                f"Modulos cargados: **{len(bot.loaded_cogs) if hasattr(bot, 'loaded_cogs') else 'N/A'}**\n"
-                f"Online desde: <t:{int(time.time())}:R>\n\n"
-                f"**Base de datos**\n"
-                f"Conectada  SQLite"
-            ),
+        # Page 1: Overview
+        embed = GuildEmbed(
+            title=f"📋 {self.bot.t(lang, 'panel.overview_title')}",
+            description=interaction.guild.name,
             color=config.EMBED_COLOR,
+            guild=interaction.guild,
         )
-        overview.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        overview.set_thumbnail(url=guild.icon.url if guild.icon else None)
-        pages.append(overview)
+        if interaction.guild.icon:
+            embed.set_thumbnail(url=interaction.guild.icon.url)
+        embed.add_field(name=self.bot.t(lang, "panel.total_members"), value=str(interaction.guild.member_count), inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.total_channels"), value=str(len(interaction.guild.channels)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.total_roles"), value=str(len(interaction.guild.roles)), inline=True)
+        pages.append(embed)
 
-        modules_info = PremiumEmbed(
-            title=f"Modulos del Servidor",
-            description="Estado actual de cada modulo. Usa `/config view` para cambiar su estado.\n" + "\u2500" * 30,
-            color=config.EMBED_COLOR,
+        # Page 2: Modules
+        embed = GuildEmbed(
+            title=f"⚙️ {self.bot.t(lang, 'panel.modules_title')}",
+            color=config.COLORS["blue"],
+            guild=interaction.guild,
         )
-
-        module_list = [
-            ("Niveles", "level_system", "XP, niveles y roles automaticos"),
-            ("Economia", "economy_system", "Monedas, tienda y apuestas"),
-            ("Reputacion", "rep_system", "Sistema de reputacion entre usuarios"),
-            ("Bienvenidas", "welcome_system", "Mensajes al entrar y salir"),
-            ("Tickets", "ticket_system", "Sistema de soporte con tickets"),
-            ("Automod", "automod_enabled", "Anti-spam, links y palabras prohibidas"),
-            ("Anti-Nuke", "antinuke_enabled", "Proteccion contra acciones masivas"),
-            ("Verificacion", "verify_enabled", "Verificacion con boton o captcha"),
+        mods = [
+            ("economy", self.bot.t(lang, "panel.economy_desc")),
+            ("levels", self.bot.t(lang, "panel.levels_desc")),
+            ("tickets", self.bot.t(lang, "panel.tickets_desc")),
+            ("logging", self.bot.t(lang, "panel.logging_desc")),
+            ("reaction_roles", self.bot.t(lang, "panel.reaction_roles_desc")),
+            ("welcome", self.bot.t(lang, "panel.welcome_desc")),
+            ("suggestions", self.bot.t(lang, "panel.suggestions_desc")),
+            ("reports", self.bot.t(lang, "panel.reports_desc")),
+            ("automod", self.bot.t(lang, "panel.automod_desc")),
+            ("antinuke", self.bot.t(lang, "panel.antinuke_desc")),
+            ("verification", self.bot.t(lang, "panel.verification_desc")),
         ]
+        for key, desc in mods:
+            status = g.get(f"{key}_enabled", 1 if key in ("economy", "levels", "tickets", "welcome") else 0)
+            emoji = "✅" if status else "❌"
+            embed.add_field(name=f"{emoji} {key.capitalize()}", value=desc, inline=True)
+        pages.append(embed)
 
-        lines = []
-        for name, key, desc in module_list:
-            s = "`[ON]`" if config_data.get(key, 1) else "`[OFF]`"
-            lines.append(f"{s} **{name}**\n  {desc}")
-
-        modules_info.description += "\n\n" + "\n\n".join(lines)
-        pages.append(modules_info)
-
-        eco = PremiumEmbed(
-            title=f"Resumen Economico",
-            description="Cargando estadisticas...",
-            color=config.COLORS["gold"],
+        # Page 3: Economy
+        embed = GuildEmbed(
+            title=f"💰 {self.bot.t(lang, 'panel.economy_section')}",
+            color=colors["economy"],
+            guild=interaction.guild,
         )
+        eco_enabled = g.get("economy_enabled", 1)
+        embed.add_field(name=self.bot.t(lang, "panel.status"), value="✅" if eco_enabled else "❌", inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.economy_start_bal"), value=f"{g.get('economy_start_balance', 100):,} 🪙", inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.economy_work_pay"), value=f"{g.get('economy_work_pay', 50):,} 🪙", inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.economy_daily_amount"), value=f"{g.get('economy_daily_amount', 100):,} 🪙", inline=True)
+        pages.append(embed)
 
-        try:
-            top_bal = await self.bot.db.get_leaderboard(guild.id, "balance", 5)
-            eco_lines = [f"**Top 5 Economico**\n"]
-            medals = ["#1", "#2", "#3", "#4", "#5"]
-            for i, r in enumerate(top_bal or []):
-                m = guild.get_member(r["user_id"])
-                name = m.display_name if m else f"`{r['user_id']}`"
-                eco_lines.append(f"{medals[i]} **{name}**  {r['balance']:,} monedas")
-
-            total_members = await self.bot.db.fetchall(
-                "SELECT COUNT(*) as c FROM members WHERE guild_id = ?", guild.id
-            )
-            total_warnings = await self.bot.db.fetchall(
-                "SELECT COUNT(*) as c FROM warnings WHERE guild_id = ? AND active = 1", guild.id
-            )
-
-            eco_lines.extend([
-                "",
-                f"**Estadisticas**",
-                f"Miembros registrados: `{total_members[0]['c'] if total_members else 0}`",
-                f"Warns activos: `{total_warnings[0]['c'] if total_warnings else 0}`",
-            ])
-            eco.description = "\n".join(eco_lines)
-        except Exception as e:
-            eco.description = f"Error al cargar: {e}"
-
-        pages.append(eco)
-
-        mod_stats = PremiumEmbed(
-            title=f"Moderacion",
-            description="Estadisticas de moderacion del servidor.\n" + "\u2500" * 30,
-            color=config.EMBED_COLOR,
+        # Page 4: Moderation
+        embed = GuildEmbed(
+            title=f"🛡️ {self.bot.t(lang, 'panel.moderation_section')}",
+            color=colors["moderation"],
+            guild=interaction.guild,
         )
+        mod_log = g.get("log_channel_all")
+        embed.add_field(name=self.bot.t(lang, "panel.mod_log_channel"), value=f"<#{mod_log}>" if mod_log else self.bot.t(lang, "common.not_configured"), inline=False)
+        muted_role = discord.utils.get(interaction.guild.roles, name="Silenciado")
+        embed.add_field(name=self.bot.t(lang, "panel.muted_role"), value=muted_role.mention if muted_role else self.bot.t(lang, "common.not_configured"), inline=True)
+        pages.append(embed)
 
-        try:
-            recent_cases = await self.bot.db.fetchall(
-                "SELECT * FROM cases WHERE guild_id = ? ORDER BY timestamp DESC LIMIT 5",
-                guild.id,
-            )
-            total_cases = await self.bot.db.fetchall(
-                "SELECT COUNT(*) as c FROM cases WHERE guild_id = ?", guild.id
-            )
-
-            mod_lines = [
-                f"Casos totales: `{total_cases[0]['c'] if total_cases else 0}`",
-                "",
-                "**Ultimas acciones**",
-            ]
-
-            for r in recent_cases or []:
-                mod_lines.append(
-                    f"  `#{r['case_number']}`  {r['action_type']}  <t:{int(r['timestamp'])}:R>"
-                )
-
-            mod_stats.description = "\n".join(mod_lines)
-        except Exception as e:
-            mod_stats.description = f"Error: {e}"
-
-        pages.append(mod_stats)
-
-        cfg = PremiumEmbed(
-            title=f"Configuracion",
-            color=config.EMBED_COLOR,
+        # Page 5: Config values
+        embed = GuildEmbed(
+            title=f"🔧 {self.bot.t(lang, 'panel.config_section')}",
+            color=colors["levels"],
+            guild=interaction.guild,
         )
+        prefix = "/"
+        embed.add_field(name=self.bot.t(lang, "panel.prefix"), value=f"`{prefix}`", inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.language"), value=g.get("lang", "es"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "panel.level_channel"), value=f"<#{g.get('level_channel')}>" if g.get("level_channel") else self.bot.t(lang, "common.dm"), inline=True)
+        pages.append(embed)
 
-        welcome_ch = guild.get_channel(config_data.get("welcome_channel") or 0)
-        ticket_cat = guild.get_channel(config_data.get("ticket_category") or 0)
-        mod_log = guild.get_channel(config_data.get("mod_log_channel") or 0)
-
-        cfg.description = (
-            f"**Prefijo:** `{config_data.get('prefix', '!')}`\n"
-            f"**Idioma:** `{config_data.get('language', 'es')}`\n"
-            f"**Bienvenidas:** {welcome_ch.mention if welcome_ch else 'No configurado'}\n"
-            f"**Tickets:** {ticket_cat.mention if ticket_cat else 'No configurado'}\n"
-            f"**Logs Mod:** {mod_log.mention if mod_log else 'No configurado'}\n\n"
-            f"**Sugerencias:** {'Configurado' if config_data.get('suggested_channel') else 'No configurado'}\n"
-            f"**Reportes:** {'Configurado' if config_data.get('report_channel') else 'No configurado'}\n"
-            f"**Verificacion:** {'Configurado' if config_data.get('verify_channel') else 'No configurado'}\n\n"
-            f"Usa `/config view` para ver toda la configuracion.\n"
-            f"Gestiona todo desde el **Dashboard Web**."
+        # Page 6: Help info
+        embed = GuildEmbed(
+            title=f"❓ {self.bot.t(lang, 'panel.help_section')}",
+            description=self.bot.t(lang, "panel.help_desc"),
+            color=config.COLORS["yellow"],
+            guild=interaction.guild,
         )
-        pages.append(cfg)
+        embed.add_field(name=self.bot.t(lang, "panel.commands_list"), value=self.bot.t(lang, "panel.commands_help"), inline=False)
+        embed.add_field(name=self.bot.t(lang, "panel.config_commands"), value=self.bot.t(lang, "panel.config_help"), inline=False)
+        pages.append(embed)
 
-        help_page = PremiumEmbed(
-            title=f"Comandos Rapidos",
-            description=(
-                "\u2500" * 30 + "\n\n"
-                "**Moderacion**\n"
-                "  `/ban`, `/kick`, `/mute`, `/warn`, `/purge`, `/lock`\n\n"
-                "**Economia**\n"
-                "  `/balance`, `/daily`, `/work`, `/shop`, `/slots`\n\n"
-                "**Niveles**\n"
-                "  `/rank`, `/leaderboard`\n\n"
-                "**Tickets**\n"
-                "  `/ticket` Abrir, cerrar, reclamar\n\n"
-                "**Configuracion**\n"
-                "  `/config view`, `/config prefix`, `/config modules`\n\n"
-                "**Diversion**\n"
-                "  `/avatar`, `/serverinfo`, `/userinfo`\n\n"
-                f"Panel interactivo: Usa los botones para navegar"
-            ),
-            color=config.EMBED_COLOR,
-        )
-        pages.append(help_page)
-
-        return pages
-
-    @panel.error
-    async def panel_error(self, interaction, error):
-        if isinstance(error, app_commands.CommandOnCooldown):
-            await interaction.response.send_message(
-                f"Espera {error.retry_after:.0f}s antes de usar el panel otra vez.",
-                ephemeral=True,
-            )
+        pag = ReactionPaginator(interaction, pages, timeout=120)
+        await pag.start()
 
 
 async def setup(bot):

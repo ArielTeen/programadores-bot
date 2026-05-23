@@ -1,494 +1,403 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import datetime
-import platform
 import time
-import math
 import asyncio
+import platform
 import config
-from utils.embeds import PremiumEmbed, info_embed, error_embed, success_embed, send_ephemeral
-from utils.paginator import ButtonPaginator
+from utils.embeds import GuildEmbed, success_embed, error_embed, info_embed
+from utils.helpers import send_log
 
 
 class HelpSelect(discord.ui.Select):
-    def __init__(self, categories, bot):
-        self.categories = categories
+    def __init__(self, bot, lang):
         self.bot = bot
-        options = []
-        for name, cog_name, desc in categories:
-            cog = bot.get_cog(cog_name)
-            cmd_count = len(list(cog.walk_app_commands())) if cog else 0
-            options.append(discord.SelectOption(
-                label=name,
-                description=f"{cmd_count} comandos",
-                value=cog_name
-            ))
-        super().__init__(
-            placeholder="Selecciona una categoria...",
-            min_values=1, max_values=1, options=options
-        )
+        self.lang = lang
+        opts = [
+            discord.SelectOption(label=self.bot.t(lang, "help.moderation"), emoji="🛡️", value="moderation", description=self.bot.t(lang, "help.moderation_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.economy"), emoji="💰", value="economy", description=self.bot.t(lang, "help.economy_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.fun"), emoji="🎮", value="fun", description=self.bot.t(lang, "help.fun_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.utility"), emoji="🔧", value="utility", description=self.bot.t(lang, "help.utility_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.levels"), emoji="📊", value="levels", description=self.bot.t(lang, "help.levels_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.tickets"), emoji="🎫", value="tickets", description=self.bot.t(lang, "help.tickets_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.giveaways"), emoji="🎉", value="giveaways", description=self.bot.t(lang, "help.giveaways_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "help.reputation"), emoji="⭐", value="reputation", description=self.bot.t(lang, "help.reputation_desc")),
+        ]
+        super().__init__(placeholder=self.bot.t(lang, "help.select_category"), options=opts)
 
-    async def callback(self, interaction):
-        cog_name = self.values[0]
-        cog = self.bot.get_cog(cog_name)
-        if not cog:
-            return await interaction.response.send_message(
-                "Categoria no encontrada.", ephemeral=True
-            )
-        cmds = list(cog.walk_app_commands())
-        label = cog_name
-        cat_desc = ""
-        for name, cn, desc in self.categories:
-            if cn == cog_name:
-                label = name
-                cat_desc = desc
-                break
-        embed = PremiumEmbed(
-            title=label,
-            description=cat_desc,
-            color=config.COLORS["purple"]
-        )
-        if cmds:
-            lines = []
-            for cmd in cmds:
-                lines.append(f"`/{cmd.name}`  —  {cmd.description or 'Sin descripcion'}")
-            embed.add_field(
-                name=f"Comandos ({len(cmds)})",
-                value="\n".join(lines),
-                inline=False
-            )
-        else:
-            embed.add_field(name="Comandos", value="Ninguno", inline=False)
-        embed.set_footer(text="Comunidad de Programadores")
-        await interaction.response.edit_message(embed=embed, view=self.view)
-
-
-class HelpView(discord.ui.View):
-    def __init__(self, categories, bot):
-        super().__init__(timeout=120)
-        self.add_item(HelpSelect(categories, bot))
-        self.main_embed = None
-
-    async def on_timeout(self):
-        for child in self.children:
-            child.disabled = True
-        if self.main_embed:
-            try:
-                await self.message.edit(view=self)
-            except:
-                pass
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        category = interaction.data["values"][0]
+        help_data = {
+            "moderation": ("🛡️ " + self.bot.t(lang, "help.moderation"), [
+                "/ban", "/kick", "/mute", "/unmute", "/warn", "/warnings",
+                "/clearwarn", "/purge", "/purgeall", "/slowmode", "/lock",
+                "/unlock", "/nick", "/role", "/voice", "/clean", "/case",
+                "/massban",
+            ]),
+            "economy": ("💰 " + self.bot.t(lang, "help.economy"), [
+                "/balance", "/daily", "/weekly", "/work", "/pay", "/shop",
+                "/buy", "/rob", "/gamble", "/slots", "/inventory", "/give",
+                "/economy give", "/economy remove", "/economy set",
+                "/economy reset",
+            ]),
+            "fun": ("🎮 " + self.bot.t(lang, "help.fun"), [
+                "/8ball", "/meme", "/cat", "/dog", "/hug", "/kiss", "/slap",
+                "/pat", "/coinflip", "/dice", "/reverse", "/say", "/mock",
+                "/randomnumber", "/github", "/urban",
+            ]),
+            "utility": ("🔧 " + self.bot.t(lang, "help.utility"), [
+                "/help", "/ping", "/botinfo", "/serverinfo", "/userinfo",
+                "/roleinfo", "/avatar", "/banner", "/poll", "/timestamp",
+                "/remind", "/afk", "/membercount", "/roles", "/channels",
+                "/boosters", "/servericon", "/serverbanner",
+            ]),
+            "levels": ("📊 " + self.bot.t(lang, "help.levels"), [
+                "/rank", "/leaderboard", "/xp add", "/xp remove", "/xp set",
+                "/xp reset", "/levelroles add", "/levelroles remove",
+                "/levelroles list", "/levelconfig", "/levelmessage",
+            ]),
+            "tickets": ("🎫 " + self.bot.t(lang, "help.tickets"), [
+                "/ticket", "/ticketpanel", "/ticketconfig", "/add", "/remove",
+                "/rename", "/close", "/ticketstats",
+            ]),
+            "giveaways": ("🎉 " + self.bot.t(lang, "help.giveaways"), [
+                "/giveaway start", "/giveaway end", "/giveaway reroll",
+                "/giveaway list",
+            ]),
+            "reputation": ("⭐ " + self.bot.t(lang, "help.reputation"), [
+                "/rep give", "/rep remove", "/rep set", "/rep profile",
+                "/rep top", "/reprewards add", "/reprewards remove",
+                "/reprewards list", "/rep config",
+            ]),
+        }
+        title, cmds = help_data.get(category, ("❓ " + self.bot.t(lang, "help.unknown"), []))
+        embed = GuildEmbed(title=title, color=config.EMBED_COLOR, guild=interaction.guild)
+        for c in cmds:
+            embed.add_field(name=c, value="", inline=True)
+        await interaction.edit_original_response(embed=embed)
 
 
 class Utility(commands.Cog):
-    """Utilidad e informacion del bot."""
+    """🔧 Comandos de utilidad — info, help, ping, etc."""
 
     def __init__(self, bot):
         self.bot = bot
-        self.afk_users = {}
+        self.start_time = time.time()
 
-    tools = app_commands.Group(name="tools", description="Herramientas adicionales")
-
-    CATEGORIES = [
-        ("Moderacion", "Moderation", "Gestion de sanciones, warns y proteccion del servidor"),
-        ("Automod", "AutoMod", "Filtro automatico de spam, links y menciones"),
-        ("Anti-Nuke", "AntiNuke", "Proteccion contra acciones destructivas masivas"),
-        ("Reputacion", "Reputation", "Sistema de reputacion, ranking y recompensas"),
-        ("Niveles", "Levels", "Sistema de XP, niveles y roles automaticos"),
-        ("Economia", "Economy", "Monedas, tienda y economia virtual"),
-        ("Tickets", "Tickets", "Sistema de soporte con tickets interactivos"),
-        ("Bienvenidas", "Welcome", "Mensajes de bienvenida, despedida y autorol"),
-        ("Logs", "Logs", "Registro de eventos y auditoria del servidor"),
-        ("Utilidad", "Utility", "Informacion, herramientas y comandos de ayuda"),
-        ("Diversion", "Fun", "Comandos entretenidos y minijuegos"),
-        ("Sugerencias", "Suggestions", "Sistema de sugerencias con votacion"),
-        ("Reportes", "Reports", "Sistema de reportes de usuarios"),
-        ("Verificacion", "Verification", "Sistema de verificacion con botones"),
-        ("Reaction Roles", "ReactionRoles", "Roles por reacciones y botones"),
-        ("Giveaways", "Giveaways", "Sorteos y premios automaticos"),
-        ("Configuracion", "ConfigCog", "Ajustes generales del bot en el servidor"),
-        ("Panel", "Panel", "Panel de control interactivo del servidor"),
-    ]
-
-    # ─── HELP ───────────────────────────────────────────────────────────
-
-    @app_commands.command(name="help", description="Explorar todos los comandos del bot")
-    @app_commands.describe(comando="Comando especifico para ver detalles")
-    async def help(self, interaction: discord.Interaction, comando: str = None):
-        await interaction.response.defer(ephemeral=True)
-
-        if comando:
-            for cog in self.bot.cogs.values():
-                for cmd in cog.walk_app_commands():
-                    if cmd.name == comando:
-                        e = PremiumEmbed(
-                            title=f"/{cmd.name}",
-                            description=cmd.description or "Sin descripcion",
-                            color=config.COLORS["purple"]
-                        )
-                        e.set_footer(text="Comunidad de Programadores")
-                        await send_ephemeral(interaction, embed=e)
-                        return
-            return await send_ephemeral(
-                interaction,
-                embed=error_embed("Comando no encontrado", f"No existe el comando `/{comando}`.")
-            )
-
-        embed = PremiumEmbed(
-            title="Centro de Comandos",
-            description=(
-                f"Selecciona una categoria del menu desplegable para ver sus comandos.\n"
-                f"Usa `/help <comando>` para ver detalles de un comando especifico."
-            ),
-            color=config.COLORS["purple"]
+    @app_commands.command(name="help", description="Menú de ayuda")
+    async def help(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        embed = GuildEmbed(
+            title=f"❓ {self.bot.t(lang, 'help.title')}",
+            description=self.bot.t(lang, "help.desc", prefix="/"),
+            color=config.EMBED_COLOR,
+            guild=interaction.guild,
         )
-        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text="Comunidad de Programadores")
-
-        total_cmds = sum(
-            len(list(cog.walk_app_commands()))
-            for cog in self.bot.cogs.values()
-        )
-        embed.add_field(
-            name="Resumen",
-            value=(
-                f"**{len(self.bot.cogs)}** modulos  ·  **{total_cmds}** comandos\n"
-                f"[Dashboard]({config.DASHBOARD_URL})"
-            ),
-            inline=False
-        )
-
-        view = HelpView(self.CATEGORIES, self.bot)
-        view.main_embed = embed
+        embed.set_footer(text=self.bot.t(lang, "help.select_category"))
+        view = discord.ui.View()
+        view.add_item(HelpSelect(self.bot, lang))
         await interaction.followup.send(embed=embed, view=view)
-        view.message = await interaction.original_response()
 
-    # ─── PING ──────────────────────────────────────────────────────────
-
-    @app_commands.command(name="ping", description="Ver latencia del bot")
+    @app_commands.command(name="ping", description="Latencia del bot")
     async def ping(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        start = time.time()
-        await self.bot.db.execute("SELECT 1")
-        db_ms = (time.time() - start) * 1000
-        e = PremiumEmbed(title="Ping", color=config.COLORS["green"])
-        e.add_field(name="API", value=f"**{round(self.bot.latency * 1000)}ms**", inline=True)
-        e.add_field(name="Base de datos", value=f"**{db_ms:.1f}ms**", inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        start = time.monotonic()
+        await interaction.response.send_message("🏓")
+        end = time.monotonic()
+        api_latency = round((end - start) * 1000)
+        embed = GuildEmbed(title="🏓 " + self.bot.t(lang, "ping.title"), color=config.COLORS["green"], guild=interaction.guild)
+        embed.add_field(name=self.bot.t(lang, "ping.bot_latency"), value=f"{round(self.bot.latency * 1000)}ms", inline=True)
+        embed.add_field(name=self.bot.t(lang, "ping.api_latency"), value=f"{api_latency}ms", inline=True)
+        embed.add_field(name=self.bot.t(lang, "ping.uptime"), value=f"<t:{int(self.start_time)}:R>", inline=False)
+        await interaction.edit_original_response(content=None, embed=embed)
 
-    # ─── BOTINFO ──────────────────────────────────────────────────────
-
-    @app_commands.command(name="botinfo", description="Informacion del bot")
+    @app_commands.command(name="botinfo", description="Información del bot")
     async def botinfo(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        uptime = datetime.datetime.utcnow() - (self.bot.uptime or datetime.datetime.utcnow())
-        h, rem = divmod(int(uptime.total_seconds()), 3600)
-        m, s = divmod(rem, 60)
-        e = PremiumEmbed(title=f"{self.bot.user.name}  ·  Informacion", color=config.EMBED_COLOR)
-        e.set_thumbnail(url=self.bot.user.display_avatar.url)
-        e.add_field(name="Version", value="**3.0.0**", inline=True)
-        e.add_field(name="Python", value=f"**{platform.python_version()}**", inline=True)
-        e.add_field(name="discord.py", value=f"**{discord.__version__}**", inline=True)
-        e.add_field(name="Tiempo activo", value=f"**{h}h {m}m {s}s**", inline=True)
-        e.add_field(name="Servidores", value=f"**{len(self.bot.guilds)}**", inline=True)
-        e.add_field(name="Usuarios", value=f"**{len(self.bot.users)}**", inline=True)
-        e.add_field(name="Latencia", value=f"**{round(self.bot.latency * 1000)}ms**", inline=True)
-        e.add_field(name="Modulos", value=f"**{len(self.bot.loaded_cogs)}**", inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        uptime_seconds = int(time.time() - self.start_time)
+        days = uptime_seconds // 86400
+        hours = (uptime_seconds % 86400) // 3600
+        minutes = (uptime_seconds % 3600) // 60
+        uptime_str = f"{days}d {hours}h {minutes}m"
+        total_users = sum(len(g.members) for g in self.bot.guilds)
+        embed = GuildEmbed(title=self.bot.t(lang, "botinfo.title"), color=config.COLORS["blue"], guild=interaction.guild)
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.add_field(name=self.bot.t(lang, "botinfo.name"), value=self.bot.user.name, inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.id"), value=f"`{self.bot.user.id}`", inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.servers"), value=f"{len(self.bot.guilds):,}", inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.users"), value=f"{total_users:,}", inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.uptime"), value=uptime_str, inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.latency"), value=f"{round(self.bot.latency * 1000)}ms", inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.python"), value=platform.python_version(), inline=True)
+        embed.add_field(name=self.bot.t(lang, "botinfo.discord_py"), value=discord.__version__, inline=True)
+        await interaction.followup.send(embed=embed)
 
-    # ─── SERVERINFO ───────────────────────────────────────────────────
-
-    @app_commands.command(name="serverinfo", description="Informacion del servidor")
+    @app_commands.command(name="serverinfo", description="Información del servidor")
     async def serverinfo(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = interaction.guild
-        e = PremiumEmbed(title=g.name, color=g.me.color or config.EMBED_COLOR)
+        embed = GuildEmbed(title=self.bot.t(lang, "serverinfo.title", guild=g.name), color=g.me.color or config.EMBED_COLOR, guild=g)
         if g.icon:
-            e.set_thumbnail(url=g.icon.url)
-        e.add_field(name="Propietario", value=g.owner.mention if g.owner else "N/A", inline=True)
-        e.add_field(name="ID", value=f"**{g.id}**", inline=True)
-        e.add_field(name="Creacion", value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
-        e.add_field(name="Miembros", value=f"**{g.member_count}**", inline=True)
-        e.add_field(name="Canales", value=f"**{len(g.channels)}**", inline=True)
-        e.add_field(name="Roles", value=f"**{len(g.roles)}**", inline=True)
-        e.add_field(name="Boost", value=f"Nivel **{g.premium_tier}** ({g.premium_subscription_count})", inline=True)
-        e.add_field(name="Verificacion", value=str(g.verification_level).capitalize(), inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
+            embed.set_thumbnail(url=g.icon.url)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.name"), value=g.name, inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.id"), value=f"`{g.id}`", inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.owner"), value=g.owner.mention if g.owner else self.bot.t(lang, "common.na"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.members"), value=str(g.member_count), inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.channels"), value=str(len(g.channels)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.roles"), value=str(len(g.roles)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.created"), value=f"<t:{int(g.created_at.timestamp())}:D>", inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.boost_level"), value=str(g.premium_tier), inline=True)
+        embed.add_field(name=self.bot.t(lang, "serverinfo.boosts"), value=str(g.premium_subscription_count), inline=True)
+        await interaction.followup.send(embed=embed)
 
-    # ─── USERINFO ─────────────────────────────────────────────────────
-
-    @app_commands.command(name="userinfo", description="Informacion de un usuario")
-    @app_commands.describe(user="Usuario")
+    @app_commands.command(name="userinfo", description="Información de un usuario")
+    @app_commands.describe(user="Usuario (opcional)")
     async def userinfo(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
-        await interaction.response.defer(ephemeral=True)
-        md = await self.bot.db.get_member(user.id, interaction.guild.id)
-        e = PremiumEmbed(title=user.display_name, color=user.color or config.EMBED_COLOR)
-        e.set_thumbnail(url=user.display_avatar.url)
-        e.add_field(name="ID", value=f"**{user.id}**", inline=True)
-        e.add_field(name="Tag", value=f"**{user}**", inline=True)
-        e.add_field(name="Bot", value="**Si**" if user.bot else "**No**", inline=True)
-        e.add_field(name="Creacion", value=f"<t:{int(user.created_at.timestamp())}:D>", inline=True)
-        e.add_field(name="Ingreso", value=f"<t:{int(user.joined_at.timestamp())}:D>" if user.joined_at else "N/A", inline=True)
-        e.add_field(name="Nivel", value=f"**{md.get('level', 0)}**", inline=True)
-        e.add_field(name="Reputacion", value=f"**{md.get('reputation', 0)}**", inline=True)
-        e.add_field(name="Balance", value=f"**{md.get('balance', 0):,}**", inline=True)
-        roles = [r.mention for r in user.roles if r != interaction.guild.default_role]
-        if roles:
-            e.add_field(name=f"Roles ({len(roles)})", value=", ".join(roles[:5]) + ("..." if len(roles) > 5 else ""), inline=False)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        embed = GuildEmbed(title=self.bot.t(lang, "userinfo.title", user=user.display_name), color=user.color or config.EMBED_COLOR, guild=interaction.guild)
+        embed.set_thumbnail(url=user.display_avatar.url)
+        embed.add_field(name=self.bot.t(lang, "userinfo.name"), value=str(user), inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.id"), value=f"`{user.id}`", inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.nickname"), value=user.nick or self.bot.t(lang, "common.na"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.joined"), value=f"<t:{int(user.joined_at.timestamp())}:D>" if user.joined_at else self.bot.t(lang, "common.na"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.registered"), value=f"<t:{int(user.created_at.timestamp())}:D>", inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.roles"), value=", ".join(r.mention for r in user.roles[1:6]) or self.bot.t(lang, "common.none"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.top_role"), value=user.top_role.mention if user.top_role.name != "@everyone" else self.bot.t(lang, "common.none"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.avatar"), value=f"[{self.bot.t(lang, 'common.link')}]({user.display_avatar.url})", inline=True)
+        embed.add_field(name=self.bot.t(lang, "userinfo.bot"), value=self.bot.t(lang, "common.yes") if user.bot else self.bot.t(lang, "common.no"), inline=True)
+        await interaction.followup.send(embed=embed)
 
-    # ─── AVATAR ────────────────────────────────────────────────────────
+    @app_commands.command(name="roleinfo", description="Información de un rol")
+    @app_commands.describe(role="Rol")
+    async def roleinfo(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        embed = GuildEmbed(title=self.bot.t(lang, "roleinfo.title", role=role.name), color=role.color or config.EMBED_COLOR, guild=interaction.guild)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.name"), value=role.name, inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.id"), value=f"`{role.id}`", inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.color"), value=str(role.color), inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.members"), value=str(len(role.members)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.position"), value=str(role.position), inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.mentionable"), value=self.bot.t(lang, "common.yes") if role.mentionable else self.bot.t(lang, "common.no"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "roleinfo.created"), value=f"<t:{int(role.created_at.timestamp())}:D>", inline=True)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="avatar", description="Ver avatar de un usuario")
-    @app_commands.describe(user="Usuario")
-    async def avatar(self, interaction: discord.Interaction, user: discord.User = None):
+    @app_commands.describe(user="Usuario (opcional)")
+    async def avatar(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
-        await interaction.response.defer(ephemeral=True)
-        e = PremiumEmbed(title=f"Avatar de {user.display_name}", color=config.EMBED_COLOR)
-        e.set_image(url=user.display_avatar.url)
-        v = discord.ui.View()
-        v.add_item(discord.ui.Button(label="Descargar", url=user.display_avatar.url.replace("size=", "size=4096")))
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e, view=v)
-
-    # ─── BANNER ────────────────────────────────────────────────────────
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        embed = GuildEmbed(title=self.bot.t(lang, "avatar.title", user=user.display_name), url=user.display_avatar.url, color=user.color or config.EMBED_COLOR, guild=interaction.guild)
+        embed.set_image(url=user.display_avatar.url)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="banner", description="Ver banner de un usuario")
-    @app_commands.describe(user="Usuario")
-    async def banner(self, interaction: discord.Interaction, user: discord.User = None):
+    @app_commands.describe(user="Usuario (opcional)")
+    async def banner(self, interaction: discord.Interaction, user: discord.Member = None):
         user = user or interaction.user
-        await interaction.response.defer(ephemeral=True)
-        u = await self.bot.fetch_user(user.id)
-        if u.banner:
-            e = PremiumEmbed(title=f"Banner de {u.display_name}", color=config.EMBED_COLOR)
-            e.set_image(url=u.banner.url)
-            e.set_footer(text="Comunidad de Programadores")
-            await send_ephemeral(interaction, embed=e)
-        else:
-            await send_ephemeral(interaction, embed=info_embed("Sin banner", "Este usuario no tiene banner."))
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        try:
+            usr = await self.bot.fetch_user(user.id)
+            if usr.banner:
+                embed = GuildEmbed(title=self.bot.t(lang, "banner.title", user=user.display_name), url=usr.banner.url, color=user.color or config.EMBED_COLOR, guild=interaction.guild)
+                embed.set_image(url=usr.banner.url)
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "banner.not_found")))
+        except:
+            await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "errors.generic")))
 
-    # ─── ROLEINFO ──────────────────────────────────────────────────────
-
-    @app_commands.command(name="roleinfo", description="Informacion de un rol")
-    @app_commands.describe(rol="Rol")
-    async def roleinfo(self, interaction: discord.Interaction, rol: discord.Role):
-        await interaction.response.defer(ephemeral=True)
-        e = PremiumEmbed(title=rol.name, color=rol.color or config.EMBED_COLOR)
-        e.add_field(name="ID", value=f"**{rol.id}**", inline=True)
-        e.add_field(name="Color", value=str(rol.color), inline=True)
-        e.add_field(name="Miembros", value=f"**{len(rol.members)}**", inline=True)
-        e.add_field(name="Creacion", value=f"<t:{int(rol.created_at.timestamp())}:D>", inline=True)
-        e.add_field(name="Mencionable", value="**Si**" if rol.mentionable else "**No**", inline=True)
-        e.add_field(name="Separado", value="**Si**" if rol.hoist else "**No**", inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
-
-    # ─── CHANNELINFO ──────────────────────────────────────────────────
-
-    @app_commands.command(name="channelinfo", description="Informacion de un canal")
-    @app_commands.describe(canal="Canal")
-    async def channelinfo(self, interaction: discord.Interaction, canal: discord.TextChannel = None):
-        canal = canal or interaction.channel
-        await interaction.response.defer(ephemeral=True)
-        e = PremiumEmbed(title=f"#{canal.name}", color=config.EMBED_COLOR)
-        e.add_field(name="ID", value=f"**{canal.id}**", inline=True)
-        e.add_field(name="Tipo", value=str(canal.type).capitalize(), inline=True)
-        e.add_field(name="Creacion", value=f"<t:{int(canal.created_at.timestamp())}:D>", inline=True)
-        if hasattr(canal, "slowmode_delay"):
-            e.add_field(name="Slowmode", value=f"**{canal.slowmode_delay}s**" if canal.slowmode_delay else "**No**", inline=True)
-        if hasattr(canal, "category") and canal.category:
-            e.add_field(name="Categoria", value=canal.category.name, inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
-
-    # ─── MEMBERCOUNT ──────────────────────────────────────────────────
-
-    @app_commands.command(name="membercount", description="Contar miembros del servidor")
-    async def membercount(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        g = interaction.guild
-        humans = sum(1 for m in g.members if not m.bot)
-        bots = g.member_count - humans
-        online = sum(1 for m in g.members if m.status != discord.Status.offline)
-        e = PremiumEmbed(title=f"Miembros de {g.name}", color=config.EMBED_COLOR)
-        e.add_field(name="Humanos", value=f"**{humans}**", inline=True)
-        e.add_field(name="Bots", value=f"**{bots}**", inline=True)
-        e.add_field(name="En linea", value=f"**{online}**", inline=True)
-        e.add_field(name="Total", value=f"**{g.member_count}**", inline=True)
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
-
-    # ─── SERVER ICON ──────────────────────────────────────────────────
-
-    @app_commands.command(name="servericon", description="Ver icono del servidor")
-    async def servericon(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        if interaction.guild.icon:
-            e = PremiumEmbed(title=f"Icono de {interaction.guild.name}", color=config.EMBED_COLOR)
-            e.set_image(url=interaction.guild.icon.url)
-            e.set_footer(text="Comunidad de Programadores")
-            await send_ephemeral(interaction, embed=e)
-        else:
-            await send_ephemeral(interaction, embed=info_embed("Sin icono", "Este servidor no tiene icono."))
-
-    # ─── SERVER BANNER ────────────────────────────────────────────────
-
-    @app_commands.command(name="serverbanner", description="Ver banner del servidor")
-    async def serverbanner(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        if interaction.guild.banner:
-            e = PremiumEmbed(title=f"Banner de {interaction.guild.name}", color=config.EMBED_COLOR)
-            e.set_image(url=interaction.guild.banner.url)
-            e.set_footer(text="Comunidad de Programadores")
-            await send_ephemeral(interaction, embed=e)
-        else:
-            await send_ephemeral(interaction, embed=info_embed("Sin banner", "Este servidor no tiene banner."))
-
-    # ─── POLL ─────────────────────────────────────────────────────────
-
-    @tools.command(name="poll", description="Crear una encuesta")
-    @app_commands.describe(pregunta="Pregunta", opciones="Opciones separadas por |")
-    async def poll(self, interaction: discord.Interaction, pregunta: str, opciones: str = "Si | No"):
-        await interaction.response.defer(ephemeral=False)
-        opts = [o.strip() for o in opciones.split("|")]
+    @app_commands.command(name="poll", description="Crear una encuesta")
+    @app_commands.describe(pregunta="Pregunta", opciones="Opciones separadas por comas (2-10)")
+    async def poll(self, interaction: discord.Interaction, pregunta: str, opciones: str):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        opts = [o.strip() for o in opciones.split(",") if o.strip()]
         if len(opts) < 2 or len(opts) > 10:
-            return await send_ephemeral(interaction, embed=error_embed("Error", "Entre 2 y 10 opciones separadas por |"))
-        numbers = ["1\u20e3", "2\u20e3", "3\u20e3", "4\u20e3", "5\u20e3", "6\u20e3", "7\u20e3", "8\u20e3", "9\u20e3", "\U0001f51f"]
-        desc = "\n".join(f"{numbers[i]} {o}" for i, o in enumerate(opts))
-        e = PremiumEmbed(title=pregunta, description=desc, color=config.EMBED_COLOR)
-        e.set_footer(text=f"Por {interaction.user.display_name}")
-        msg = await interaction.followup.send(embed=e)
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "utility.poll_error_range")))
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        desc = "\n".join(f"{emojis[i]} {opt}" for i, opt in enumerate(opts))
+        embed = GuildEmbed(title=f"📊 {pregunta}", description=desc, color=config.COLORS["blue"], guild=interaction.guild)
+        msg = await interaction.followup.send(embed=embed)
         for i in range(len(opts)):
-            await msg.add_reaction(numbers[i])
+            await msg.add_reaction(emojis[i])
 
-    # ─── AFK ──────────────────────────────────────────────────────────
+    @app_commands.command(name="timestamp", description="Generar timestamp de Discord")
+    @app_commands.describe(ano="Año", mes="Mes (1-12)", dia="Día", hora="Hora (0-23)", minuto="Minuto (0-59)", format="Formato: t, T, d, D, f, F, R")
+    async def timestamp(self, interaction: discord.Interaction, ano: int, mes: int, dia: int, hora: int = 0, minuto: int = 0, format: str = "f"):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        import datetime
+        try:
+            dt = datetime.datetime(ano, mes, dia, hora, minuto, tzinfo=datetime.timezone.utc)
+            ts = int(dt.timestamp())
+            embed = GuildEmbed(title=self.bot.t(lang, "utility.timestamp_title"), color=config.EMBED_COLOR, guild=interaction.guild)
+            embed.add_field(name=self.bot.t(lang, "utility.timestamp_input"), value=f"{ano}-{mes:02d}-{dia:02d} {hora:02d}:{minuto:02d}", inline=False)
+            embed.add_field(name=self.bot.t(lang, "utility.timestamp_result"), value=f"`<t:{ts}:{format}>` → <t:{ts}:{format}>", inline=False)
+            await interaction.followup.send(embed=embed)
+        except:
+            await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "utility.timestamp_invalid")))
 
-    @tools.command(name="afk", description="Establecer estado AFK")
-    @app_commands.describe(mensaje="Mensaje AFK")
-    async def afk(self, interaction: discord.Interaction, mensaje: str = "AFK"):
+    @timestamp.autocomplete("format")
+    async def ts_ac(self, interaction: discord.Interaction, current: str):
+        opts = {"t": "Hora corta", "T": "Hora larga", "d": "Fecha corta", "D": "Fecha larga", "f": "Fecha y hora", "F": "Fecha y hora larga", "R": "Relativo"}
+        return [app_commands.Choice(name=f"{k} — {v}", value=k) for k, v in opts.items() if current.lower() in k.lower() or current.lower() in v.lower()]
+
+    @app_commands.command(name="remind", description="Crear un recordatorio")
+    @app_commands.describe(duration="Duración (ej: 10m, 1h, 2d)", text="Texto del recordatorio")
+    async def remind(self, interaction: discord.Interaction, duration: str, text: str):
         await interaction.response.defer(ephemeral=True)
-        self.afk_users[interaction.user.id] = {"message": mensaje, "since": time.time()}
-        await send_ephemeral(interaction, embed=success_embed("AFK activado", mensaje))
+        lang = await self.bot.get_lang(interaction.guild.id)
+        from utils.helpers import parse_duration
+        secs = parse_duration(duration)
+        if secs is None or secs <= 0 or secs > config.REMINDER_MAX_DURATION:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "utility.remind_invalid")))
+        await self.bot.db.create_reminder(interaction.user.id, interaction.guild.id, interaction.channel.id, text, time.time() + secs)
+        embed = success_embed(self.bot.t(lang, "utility.remind_created"), self.bot.t(lang, "utility.remind_created_desc", duration=parse_duration(secs, readable=True) if not isinstance(secs, int) else duration))
+        await interaction.followup.send(embed=embed)
+
+    async def check_reminders(self):
+        await self.bot.wait_until_ready()
+        while not self.bot.is_closed():
+            await asyncio.sleep(15)
+            try:
+                rows = await self.bot.db.get_due_reminders()
+                for r in rows:
+                    guild = self.bot.get_guild(r["guild_id"])
+                    if guild:
+                        ch = guild.get_channel(r["channel_id"])
+                        if ch:
+                            try:
+                                await ch.send(embed=info_embed("⏰ " + self.bot.t(await self.bot.get_lang(guild.id), "utility.reminder"), r["text"]), content=f"<@{r['user_id']}>")
+                            except:
+                                pass
+                    await self.bot.db.delete_reminder(r["id"])
+            except:
+                pass
+
+    @app_commands.command(name="afk", description="Establecer estado AFK")
+    @app_commands.describe(reason="Razón (opcional)")
+    async def afk(self, interaction: discord.Interaction, reason: str = None):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        reason = reason or self.bot.t(lang, "utility.afk_default_reason")
+        await self.bot.db.set_afk(interaction.user.id, interaction.guild.id, reason, time.time())
+        try:
+            await interaction.user.edit(nick=f"[AFK] {interaction.user.display_name}", reason="AFK")
+        except:
+            pass
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "utility.afk_set"), self.bot.t(lang, "utility.afk_set_desc", reason=reason)))
+
+    async def check_afk(self, message):
+        if message.author.bot or not message.guild:
+            return
+        # Remove AFK on message
+        md = await self.bot.db.get_member(message.author.id, message.guild.id)
+        if md.get("afk"):
+            await self.bot.db.clear_afk(message.author.id, message.guild.id)
+            try:
+                nick = message.author.display_name
+                if nick.startswith("[AFK] "):
+                    await message.author.edit(nick=nick[6:], reason="AFK removido")
+            except:
+                pass
+            lang = await self.bot.get_lang(message.guild.id)
+            await message.channel.send(embed=success_embed(self.bot.t(lang, "utility.afk_removed"), self.bot.t(lang, "utility.afk_removed_desc", user=message.author.mention)))
+        # Check mentions
+        if message.mentions:
+            lang = await self.bot.get_lang(message.guild.id)
+            for u in message.mentions:
+                md2 = await self.bot.db.get_member(u.id, message.guild.id)
+                if md2.get("afk"):
+                    since = int(time.time() - md2["afk_since"]) if md2.get("afk_since") else 0
+                    await message.channel.send(embed=info_embed(self.bot.t(lang, "utility.afk_notice"), self.bot.t(lang, "utility.afk_notice_desc", user=u.display_name, reason=md2['afk_reason'], time=f"<t:{int(md2['afk_since'])}:R>" if md2.get('afk_since') else "")))
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot or not message.guild:
-            return
-        if message.author.id in self.afk_users:
-            del self.afk_users[message.author.id]
-            await message.channel.send(embed=success_embed("Bienvenido de vuelta", f"{message.author.mention} ya no estas AFK."), delete_after=5)
-        for user in message.mentions:
-            if user.id in self.afk_users:
-                data = self.afk_users[user.id]
-                dur = int(time.time() - data["since"])
-                await message.channel.send(embed=info_embed("AFK", f"{user.mention} esta AFK: {data['message']} ({dur}s)"), delete_after=10)
+        await self.check_afk(message)
 
-    # ─── REMIND ───────────────────────────────────────────────────────
+    @app_commands.command(name="membercount", description="Contar miembros del servidor")
+    async def membercount(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        g = interaction.guild
+        online = len([m for m in g.members if m.status != discord.Status.offline])
+        bots = len([m for m in g.members if m.bot])
+        humans = g.member_count - bots
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.membercount_title", guild=g.name), color=config.EMBED_COLOR, guild=g)
+        embed.add_field(name=self.bot.t(lang, "utility.membercount_total"), value=str(g.member_count), inline=True)
+        embed.add_field(name=self.bot.t(lang, "utility.membercount_humans"), value=str(humans), inline=True)
+        embed.add_field(name=self.bot.t(lang, "utility.membercount_bots"), value=str(bots), inline=True)
+        embed.add_field(name=self.bot.t(lang, "utility.membercount_online"), value=str(online), inline=True)
+        await interaction.followup.send(embed=embed)
 
-    @tools.command(name="remind", description="Crear un recordatorio")
-    @app_commands.describe(tiempo="Tiempo (ej: 10m, 1h, 1d)", mensaje="Mensaje")
-    async def remind(self, interaction: discord.Interaction, tiempo: str, mensaje: str):
-        await interaction.response.defer(ephemeral=True)
-        from utils.helpers import parse_duration
-        secs = parse_duration(tiempo)
-        if secs <= 0:
-            return await send_ephemeral(interaction, embed=error_embed("Error", "Tiempo invalido."))
-        if secs > 86400 * 7:
-            return await send_ephemeral(interaction, embed=error_embed("Error", "Maximo 7 dias."))
-        await send_ephemeral(interaction, embed=success_embed("Recordatorio", f"Te recordare en **{tiempo}**: {mensaje}"))
-        await asyncio.sleep(secs)
-        try:
-            await interaction.user.send(embed=info_embed("Recordatorio", mensaje))
-        except:
-            await interaction.channel.send(f"{interaction.user.mention} Recordatorio: {mensaje}")
+    @app_commands.command(name="roles", description="Listar roles del servidor")
+    async def roles(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        roles_list = [r.mention for r in interaction.guild.roles if r.name != "@everyone"][:30]
+        if not roles_list:
+            return await interaction.followup.send(embed=info_embed(self.bot.t(lang, "utility.roles_title"), self.bot.t(lang, "utility.no_roles")))
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.roles_title", guild=interaction.guild.name), description=", ".join(roles_list), color=config.EMBED_COLOR, guild=interaction.guild)
+        await interaction.followup.send(embed=embed)
 
-    # ─── TIMESTAMP ────────────────────────────────────────────────────
+    @app_commands.command(name="channels", description="Listar canales del servidor")
+    async def channels(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        cats = {}
+        for ch in interaction.guild.channels:
+            cat_name = ch.category.name if ch.category else self.bot.t(lang, "utility.no_category")
+            if cat_name not in cats:
+                cats[cat_name] = []
+            cats[cat_name].append(ch.mention)
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.channels_title", guild=interaction.guild.name), color=config.EMBED_COLOR, guild=interaction.guild)
+        for cat, chs in list(cats.items())[:10]:
+            embed.add_field(name=cat, value=", ".join(chs), inline=False)
+        await interaction.followup.send(embed=embed)
 
-    @tools.command(name="timestamp", description="Convertir fecha a timestamp de Discord")
-    @app_commands.describe(fecha="Formato: YYYY-MM-DD HH:MM")
-    async def timestamp(self, interaction: discord.Interaction, fecha: str):
-        await interaction.response.defer(ephemeral=True)
-        import dateutil.parser
-        try:
-            dt = dateutil.parser.parse(fecha)
-            ts = int(dt.timestamp())
-            e = info_embed("Timestamp", f"`{ts}`\n<t:{ts}:F>\n<t:{ts}:R>\n`<t:{ts}:F>`")
-            await send_ephemeral(interaction, embed=e)
-        except:
-            await send_ephemeral(interaction, embed=error_embed("Error", "Formato invalido. Usa: 2024-12-25 15:00"))
+    @app_commands.command(name="boosters", description="Listar boosters del servidor")
+    async def boosters(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        boosters = interaction.guild.premium_subscribers
+        if not boosters:
+            return await interaction.followup.send(embed=info_embed(self.bot.t(lang, "utility.boosters_title"), self.bot.t(lang, "utility.no_boosters")))
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.boosters_title", guild=interaction.guild.name), description="\n".join(m.mention for m in boosters[:30]), color=config.COLORS["pink"], guild=interaction.guild)
+        embed.set_footer(text=self.bot.t(lang, "utility.boosters_count", count=len(boosters)))
+        await interaction.followup.send(embed=embed)
 
-    # ─── SHORTEN ──────────────────────────────────────────────────────
+    @app_commands.command(name="servericon", description="Ver ícono del servidor")
+    async def servericon(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if not interaction.guild.icon:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "utility.no_icon")))
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.servericon_title", guild=interaction.guild.name), url=interaction.guild.icon.url, color=config.EMBED_COLOR, guild=interaction.guild)
+        embed.set_image(url=interaction.guild.icon.url)
+        await interaction.followup.send(embed=embed)
 
-    @tools.command(name="shorten", description="Acortar URL")
-    @app_commands.describe(url="URL")
-    async def shorten(self, interaction: discord.Interaction, url: str):
-        await interaction.response.defer(ephemeral=True)
-        import aiohttp
-        try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(f"https://tinyurl.com/api-create.php?url={url}") as r:
-                    short = await r.text()
-                    await send_ephemeral(interaction, embed=success_embed("URL acortada", short.strip()))
-        except:
-            await send_ephemeral(interaction, embed=error_embed("Error", "Error al acortar."))
-
-    # ─── QR ───────────────────────────────────────────────────────────
-
-    @tools.command(name="qr", description="Generar codigo QR")
-    @app_commands.describe(texto="Texto o URL")
-    async def qr(self, interaction: discord.Interaction, texto: str):
-        await interaction.response.defer(ephemeral=True)
-        e = PremiumEmbed(title="QR Code", color=config.EMBED_COLOR)
-        e.set_image(url=f"https://api.qrserver.com/v1/create-qr-code/?size=256x256&data={texto}")
-        e.set_footer(text="Comunidad de Programadores")
-        await send_ephemeral(interaction, embed=e)
-
-    # ─── COLOR ────────────────────────────────────────────────────────
-
-    @tools.command(name="color", description="Ver un color")
-    @app_commands.describe(hex_color="Color en hex (ej: #5865F2)")
-    async def color(self, interaction: discord.Interaction, hex_color: str):
-        await interaction.response.defer(ephemeral=True)
-        hex_color = hex_color.lstrip("#")
-        try:
-            r, g, b = int(hex_color[:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-            e = PremiumEmbed(title=f"#{hex_color.upper()}", color=int(hex_color, 16))
-            e.add_field(name="RGB", value=f"({r}, {g}, {b})", inline=True)
-            e.add_field(name="HEX", value=f"#{hex_color.upper()}", inline=True)
-            e.set_image(url=f"https://singlecolorimage.com/get/{hex_color}/256x256")
-            e.set_footer(text="Comunidad de Programadores")
-            await send_ephemeral(interaction, embed=e)
-        except:
-            await send_ephemeral(interaction, embed=error_embed("Error", "Color invalido. Usa: #5865F2"))
-
-    # ─── DEFINE ───────────────────────────────────────────────────────
-
-    @tools.command(name="define", description="Definir una palabra")
-    @app_commands.describe(palabra="Palabra")
-    async def define(self, interaction: discord.Interaction, palabra: str):
-        await interaction.response.defer(ephemeral=True)
-        import aiohttp
-        try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{palabra}") as r:
-                    if r.status == 200:
-                        data = await r.json()
-                        meanings = data[0].get("meanings", [])
-                        if meanings:
-                            defs = meanings[0].get("definitions", [])
-                            if defs:
-                                e = info_embed(palabra.capitalize(), defs[0].get("definition", "N/A"))
-                                await send_ephemeral(interaction, embed=e)
-                                return
-            await send_ephemeral(interaction, embed=error_embed("Error", "Palabra no encontrada."))
-        except:
-            await send_ephemeral(interaction, embed=error_embed("Error", "Error en la consulta."))
+    @app_commands.command(name="serverbanner", description="Ver banner del servidor")
+    async def serverbanner(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if not interaction.guild.banner:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "utility.no_banner")))
+        embed = GuildEmbed(title=self.bot.t(lang, "utility.serverbanner_title", guild=interaction.guild.name), url=interaction.guild.banner.url, color=config.EMBED_COLOR, guild=interaction.guild)
+        embed.set_image(url=interaction.guild.banner.url)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):
-    await bot.add_cog(Utility(bot))
+    cog = Utility(bot)
+    await bot.add_cog(cog)
+    asyncio.create_task(cog.check_reminders())

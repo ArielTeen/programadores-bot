@@ -2,132 +2,163 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import config
-from utils.embeds import PremiumEmbed, success_embed, error_embed, info_embed
+from utils.embeds import success_embed, error_embed, GuildEmbed
+from utils.helpers import create_pages
 
 
 class ReactionRoles(commands.Cog):
-    """🎭 Sistema de reaction roles y button roles."""
+    """🔘 Sistema de reacción-roles con botones y select menus."""
 
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload):
-        if payload.user_id == self.bot.user.id:
-            return
-        rrs = await self.bot.db.get_reaction_roles_for_message(payload.message_id)
-        for rr in rrs:
-            if str(payload.emoji) == rr["emoji"] and rr["type"] == "reaction":
-                guild = self.bot.get_guild(payload.guild_id)
-                if guild:
-                    role = guild.get_role(rr["role_id"])
-                    member = guild.get_member(payload.user_id)
-                    if role and member and role not in member.roles:
-                        try:
-                            await member.add_roles(role, reason="Reaction Role")
-                        except:
-                            pass
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_remove(self, payload):
-        if payload.user_id == self.bot.user.id:
-            return
-        rrs = await self.bot.db.get_reaction_roles_for_message(payload.message_id)
-        for rr in rrs:
-            if str(payload.emoji) == rr["emoji"] and rr["type"] == "reaction":
-                guild = self.bot.get_guild(payload.guild_id)
-                if guild:
-                    role = guild.get_role(rr["role_id"])
-                    member = guild.get_member(payload.user_id)
-                    if role and member and role in member.roles:
-                        try:
-                            await member.remove_roles(role, reason="Reaction Role")
-                        except:
-                            pass
-
-    reactionrole = app_commands.Group(name="reactionrole", description="Configurar reaction roles")
-
-    @reactionrole.command(name="create", description="Crear reaction role")
+    @app_commands.command(name="reactionrole", description="Crear panel de reaction roles")
     @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="Canal", message_id="ID del mensaje", role="Rol", emoji="Emoji")
+    @app_commands.describe(
+        channel="Canal del menú",
+        title="Título del embed",
+        description="Descripción",
+        roles="Roles: 'rol1=emoji1, rol2=emoji2' o 'rol1=r1; rol1=r2'",
+        style="button (botones) o select (menú desplegable)",
+    )
     @app_commands.checks.has_permissions(administrator=True)
-    async def rr_create(self, interaction: discord.Interaction, channel: discord.TextChannel, message_id: str, role: discord.Role, emoji: str):
-        await interaction.response.defer()
-        try:
-            mid = int(message_id)
-            msg = await channel.fetch_message(mid)
-            await msg.add_reaction(emoji)
-            await self.bot.db.add_reaction_role(interaction.guild.id, channel.id, mid, role.id, emoji, "reaction")
-            await interaction.followup.send(embed=success_embed("🎭 Reaction role creado", f"{emoji} → {role.mention} en {channel.mention}"))
-        except:
-            await interaction.followup.send(embed=error_embed("❌", "Mensaje no encontrado o error."))
+    async def reactionrole(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        title: str,
+        description: str = None,
+        roles: str = None,
+        style: str = "button",
+    ):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if not roles:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "reaction_roles.no_roles")))
 
-    @reactionrole.command(name="delete", description="Eliminar reaction role")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(id="ID del reaction role")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def rr_delete(self, interaction: discord.Interaction, id: int):
-        await interaction.response.defer()
-        await self.bot.db.remove_reaction_role(id, interaction.guild.id)
-        await interaction.followup.send(embed=success_embed("➖ Reaction role eliminado"))
+        parsed = []
+        for part in roles.replace(";", ",").split(","):
+            part = part.strip()
+            if "=" in part:
+                rname, emoji = part.split("=", 1)
+                parsed.append((rname.strip(), emoji.strip()))
+        if not parsed:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "reaction_roles.parse_error")))
 
-    @reactionrole.command(name="list", description="Listar reaction roles")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def rr_list(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        rows = await self.bot.db.get_reaction_roles(interaction.guild.id)
-        if not rows:
-            return await interaction.followup.send(embed=info_embed("📋", "Sin reaction roles."))
-        embed = PremiumEmbed(title="Reaction Roles", color=config.EMBED_COLOR)
-        for r in rows:
-            role = interaction.guild.get_role(r["role_id"])
-            embed.add_field(
-                name=f"{r['emoji']} · ID {r['id']}f",
-                value=f"Rol: {role.mention if role else ''}\nTipo: {r['type']}f",
-                inline=False,
-            )
-        await interaction.followup.send(embed=embed)
-
-    buttonrole = app_commands.Group(name="buttonrole", description="Configurar button roles")
-
-    @buttonrole.command(name="panel", description="Crear panel de button roles")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="Canal", title="Título", roles_text="rol1:emoji1,rol2:emoji2...")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def br_panel(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str, roles_text: str):
-        await interaction.response.defer()
-        pairs = [p.strip().split(":") for p in roles_text.split(",")]
-        embed = PremiumEmbed(title=f"🔘 {title}", description="Presiona un botón para obtener el rol.", color=config.COLORS["blue"])
-        view = discord.ui.View()
-        for pair in pairs:
-            if len(pair) >= 2:
-                role_name, emoji = pair[0].strip(), pair[1].strip()
-                role = discord.utils.get(interaction.guild.roles, name=role_name)
-                if role:
-                    embed.add_field(name=f"{emoji} {role.name}f", value=role.mention, inline=True)
-                    btn = discord.ui.Button(label=role.name, emoji=emoji, style=discord.ButtonStyle.secondary, custom_id=f"br_{role.id}")
-                    view.add_item(btn)
-        await channel.send(embed=embed, view=view)
-        await interaction.followup.send(embed=success_embed("🔘 Panel de roles enviado", channel.mention))
-
-    @commands.Cog.listener()
-    async def on_interaction(self, interaction: discord.Interaction):
-        if interaction.type != discord.InteractionType.component:
-            return
-        cid = interaction.data.get("custom_id", "")
-        if cid.startswith("br_"):
-            role_id = int(cid[3:])
-            role = interaction.guild.get_role(role_id)
+        resolved = []
+        for rname, emoji in parsed:
+            role = discord.utils.get(interaction.guild.roles, name=rname)
+            if not role:
+                try:
+                    role = discord.utils.get(interaction.guild.roles, id=int(rname.strip("<@&>")))
+                except:
+                    pass
             if role:
-                if role in interaction.user.roles:
-                    await interaction.user.remove_roles(role, reason="Button Role")
-                    await interaction.response.send_message(f"➖ {role.name} quitado.", ephemeral=True)
-                else:
-                    await interaction.user.add_roles(role, reason="Button Role")
-                    await interaction.response.send_message(f"➕ {role.name} añadido.", ephemeral=True)
-            else:
-                await interaction.response.send_message("Rol no encontrado.", ephemeral=True)
+                resolved.append((role, emoji))
+
+        if not resolved:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "reaction_roles.no_roles_found")))
+
+        embed = GuildEmbed(title=title, description=description or "", color=config.EMBED_COLOR, guild=interaction.guild)
+        for role, emoji in resolved:
+            embed.add_field(name=role.name, value=f"{emoji} {self.bot.t(lang, 'reaction_roles.click_to_get')}", inline=True)
+
+        if style == "select":
+            opts = []
+            for role, emoji in resolved:
+                opts.append(discord.SelectOption(label=role.name, emoji=emoji, value=str(role.id), description=self.bot.t(lang, "reaction_roles.get_role", role=role.name)))
+            select = discord.ui.Select(placeholder=self.bot.t(lang, "reaction_roles.placeholder"), min_values=0, max_values=len(opts), options=opts)
+
+            async def select_cb(inter: discord.Interaction):
+                await inter.response.defer(ephemeral=True)
+                lang2 = await self.bot.get_lang(inter.guild.id)
+                added, removed = 0, 0
+                for opt in select.options:
+                    rid = int(opt.value)
+                    r = inter.guild.get_role(rid)
+                    if r:
+                        if str(rid) in inter.data["values"]:
+                            if r not in inter.user.roles:
+                                await inter.user.add_roles(r, reason="Reaction role")
+                                added += 1
+                        else:
+                            if r in inter.user.roles:
+                                await inter.user.remove_roles(r, reason="Reaction role")
+                                removed += 1
+                await inter.followup.send(embed=success_embed(self.bot.t(lang2, "reaction_roles.updated"), self.bot.t(lang2, "reaction_roles.updated_desc", add=added, remove=removed)))
+
+            select.callback = select_cb
+            view = discord.ui.View().add_item(select)
+        else:
+            view = discord.ui.View()
+            for role, emoji in resolved:
+                btn = discord.ui.Button(emoji=emoji, label=role.name[:75], style=discord.ButtonStyle.secondary, custom_id=f"rr_{role.id}")
+
+                async def make_cb(rid):
+                    async def cb(inter: discord.Interaction):
+                        await inter.response.defer(ephemeral=True)
+                        lang3 = await self.bot.get_lang(inter.guild.id)
+                        r = inter.guild.get_role(rid)
+                        if r:
+                            if r in inter.user.roles:
+                                await inter.user.remove_roles(r, reason="Reaction role")
+                                await inter.followup.send(embed=success_embed(self.bot.t(lang3, "reaction_roles.role_removed"), self.bot.t(lang3, "reaction_roles.role_removed_desc", role=r.name)))
+                            else:
+                                await inter.user.add_roles(r, reason="Reaction role")
+                                await inter.followup.send(embed=success_embed(self.bot.t(lang3, "reaction_roles.role_added"), self.bot.t(lang3, "reaction_roles.role_added_desc", role=r.name)))
+                    return cb
+
+                btn.callback = await make_cb(role.id)
+                view.add_item(btn)
+
+        msg = await channel.send(embed=embed, view=view)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "reaction_roles.created_title"), self.bot.t(lang, "reaction_roles.created_desc", channel=channel.mention)))
+
+    @app_commands.command(name="rrpanel", description="Crear panel de reaction roles con texto")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(channel="Canal", message="Texto del panel", roles="rol1=emoji1, rol2=emoji2")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def rrpanel(self, interaction: discord.Interaction, channel: discord.TextChannel, message: str, roles: str):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        parsed = []
+        for part in roles.replace(";", ",").split(","):
+            part = part.strip()
+            if "=" in part:
+                rname, emoji = part.split("=", 1)
+                parsed.append((rname.strip(), emoji.strip()))
+        if not parsed:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "reaction_roles.no_roles")))
+        resolved = []
+        for rname, emoji in parsed:
+            role = discord.utils.get(interaction.guild.roles, name=rname)
+            if role:
+                resolved.append((role, emoji))
+        if not resolved:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "reaction_roles.no_roles_found")))
+        embed = GuildEmbed(description=message, color=config.EMBED_COLOR, guild=interaction.guild)
+        view = discord.ui.View()
+        for role, emoji in resolved:
+            btn = discord.ui.Button(emoji=emoji, label=role.name[:75], style=discord.ButtonStyle.secondary, custom_id=f"rrp_{role.id}")
+
+            async def make_cb(rid):
+                async def cb(inter: discord.Interaction):
+                    await inter.response.defer(ephemeral=True)
+                    lang4 = await self.bot.get_lang(inter.guild.id)
+                    r = inter.guild.get_role(rid)
+                    if r:
+                        if r in inter.user.roles:
+                            await inter.user.remove_roles(r, reason="Rr panel")
+                            await inter.followup.send(embed=success_embed(self.bot.t(lang4, "reaction_roles.role_removed"), self.bot.t(lang4, "reaction_roles.role_removed_desc", role=r.name)))
+                        else:
+                            await inter.user.add_roles(r, reason="Rr panel")
+                            await inter.followup.send(embed=success_embed(self.bot.t(lang4, "reaction_roles.role_added"), self.bot.t(lang4, "reaction_roles.role_added_desc", role=r.name)))
+                return cb
+
+            btn.callback = await make_cb(role.id)
+            view.add_item(btn)
+        msg = await channel.send(embed=embed, view=view)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "reaction_roles.created_title"), self.bot.t(lang, "reaction_roles.created_desc", channel=channel.mention)))
 
 
 async def setup(bot):

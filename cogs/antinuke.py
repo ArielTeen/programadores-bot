@@ -4,7 +4,7 @@ from discord import app_commands
 import time
 import json
 import config
-from utils.embeds import success_embed, error_embed, info_embed, PremiumEmbed
+from utils.embeds import success_embed, error_embed, info_embed, GuildEmbed
 from utils.helpers import send_log
 
 
@@ -51,9 +51,10 @@ class AntiNuke(commands.Cog):
         limit = limits.get(action_type, 3)
 
         if count >= limit:
-            embed = PremiumEmbed(
-                title="☢️ Anti-Nuke Activado",
-                description=f"**Usuario:** {user.mention} (`{user.id}`)\n**Acción:** {action_type}\n**Detalle:** {detail}",
+            lang = await self.bot.get_lang(guild.id)
+            embed = GuildEmbed(
+                title=self.bot.t(lang, "antinuke.activated_title"),
+                description=self.bot.t(lang, "antinuke.activated_desc", user=user.mention, id=user.id, action=action_type, detail=detail),
                 color=config.ERROR_COLOR,
             )
             punishment = anc.get("punishment", "ban")
@@ -66,7 +67,7 @@ class AntiNuke(commands.Cog):
                     await user.timeout(discord.utils.utcnow() + discord.timedelta(hours=24), reason=f"Anti-Nuke: {action_type}")
             except:
                 pass
-            embed.add_field(name="⚡ Castigo", value=punishment)
+            embed.add_field(name=self.bot.t(lang, "antinuke.punishment"), value=punishment)
             await send_log(self.bot, guild.id, "antinuke", embed)
 
             for ch in guild.text_channels:
@@ -124,22 +125,25 @@ class AntiNuke(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def an_enable(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.update_guild(interaction.guild.id, antinuke_enabled=1)
-        await interaction.followup.send(embed=success_embed("☢️ Anti-Nuke activado"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "antinuke.enabled")))
 
     @antinuke.command(name="disable", description="❌ Desactivar anti-nuke")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def an_disable(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.update_guild(interaction.guild.id, antinuke_enabled=0)
-        await interaction.followup.send(embed=success_embed("☢️ Anti-Nuke desactivado"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "antinuke.disabled")))
 
     @antinuke.command(name="status", description="📊 Estado del anti-nuke")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def an_status(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = await self.bot.db.get_guild(interaction.guild.id)
         anc = g.get("antinuke_config", {})
         if isinstance(anc, str):
@@ -148,14 +152,14 @@ class AntiNuke(commands.Cog):
             except:
                 anc = {}
         trusted = await self.bot.db.get_trusted_users(interaction.guild.id)
-        embed = PremiumEmbed(
-            title="☢️ Anti-Nuke Status",
-            description="✅ Activado" if g.get("antinuke_enabled", 0) else "❌ Desactivado",
+        embed = GuildEmbed(
+            title=self.bot.t(lang, "antinuke.status_title"),
+            description=self.bot.t(lang, "antinuke.status_enabled") if g.get("antinuke_enabled", 0) else self.bot.t(lang, "antinuke.status_disabled"),
             color=config.SUCCESS_COLOR if g.get("antinuke_enabled", 0) else config.ERROR_COLOR,
         )
-        embed.add_field(name="👥 Usuarios de confianza", value=str(len(trusted)), inline=True)
-        embed.add_field(name="⚡ Castigo", value=anc.get("punishment", "ban"), inline=True)
-        embed.add_field(name="📊 Límites", value=f"Canales: {anc.get('channel_limit', 3)} | Roles: {anc.get('role_limit', 3)} | Bans: {anc.get('ban_limit', 3)}", inline=False)
+        embed.add_field(name=self.bot.t(lang, "antinuke.trusted_users"), value=str(len(trusted)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "antinuke.punishment"), value=anc.get("punishment", "ban"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "antinuke.limits"), value=self.bot.t(lang, "antinuke.limits_desc", channels=anc.get('channel_limit', 3), roles=anc.get('role_limit', 3), bans=anc.get('ban_limit', 3)), inline=False)
         await interaction.followup.send(embed=embed)
 
     @antinuke.command(name="trust", description="➕ Confiar en un usuario")
@@ -164,8 +168,9 @@ class AntiNuke(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def an_trust(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.add_trusted_user(interaction.guild.id, user.id, interaction.user.id)
-        await interaction.followup.send(embed=success_embed("➕ Usuario de confianza", user.mention))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "antinuke.whitelist_added"), self.bot.t(lang, "antinuke.whitelist_added_desc", user=user.mention)))
 
     @antinuke.command(name="untrust", description="➖ Quitar confianza a un usuario")
     @app_commands.default_permissions(administrator=True)
@@ -173,22 +178,24 @@ class AntiNuke(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def an_untrust(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.remove_trusted_user(interaction.guild.id, user.id)
-        await interaction.followup.send(embed=success_embed("➖ Confianza quitada", user.mention))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "antinuke.whitelist_removed"), self.bot.t(lang, "antinuke.whitelist_removed_desc", user=user.mention)))
 
     @antinuke.command(name="trusted", description="📋 Listar usuarios de confianza")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def an_trusted(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         uids = await self.bot.db.get_trusted_users(interaction.guild.id)
         if not uids:
-            return await interaction.followup.send(embed=info_embed("📋", "No hay usuarios de confianza."))
+            return await interaction.followup.send(embed=info_embed(self.bot.t(lang, "antinuke.trusted_title"), self.bot.t(lang, "antinuke.no_trusted")))
         lines = []
         for uid in uids:
             u = interaction.guild.get_member(uid) or await self.bot.fetch_user(uid)
             lines.append(f"• {u.mention} (`{uid}`)")
-        embed = PremiumEmbed(title="👥 Usuarios de confianza", description="\n".join(lines), color=config.EMBED_COLOR)
+        embed = GuildEmbed(title=self.bot.t(lang, "antinuke.trusted_title"), description="\n".join(lines), color=config.EMBED_COLOR)
         await interaction.followup.send(embed=embed)
 
     @antinuke.command(name="punishment", description="⚡ Configurar castigo")
@@ -197,8 +204,9 @@ class AntiNuke(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def an_punishment(self, interaction: discord.Interaction, action: str):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         if action not in ("ban", "kick", "timeout"):
-            return await interaction.followup.send(embed=error_embed("❌", "ban, kick o timeout"))
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "antinuke.invalid_punishment")))
         g = await self.bot.db.get_guild(interaction.guild.id)
         anc = g.get("antinuke_config", {})
         if isinstance(anc, str):
@@ -208,7 +216,7 @@ class AntiNuke(commands.Cog):
                 anc = {}
         anc["punishment"] = action
         await self.bot.db.update_guild(interaction.guild.id, antinuke_config=anc)
-        await interaction.followup.send(embed=success_embed("⚡ Castigo", action))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "antinuke.punishment_set"), self.bot.t(lang, "antinuke.punishment_set_desc", action=action)))
 
 
 async def setup(bot):

@@ -39,7 +39,7 @@ async def run_bot():
 
 def main():
     logger.info("=" * 50)
-    logger.info("Iniciando Comunidad de Programadores Bot + Dashboard")
+    logger.info("Iniciando Bot + Dashboard")
     logger.info("=" * 50)
 
     if not config.TOKEN:

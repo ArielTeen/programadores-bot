@@ -4,211 +4,223 @@ from discord import app_commands
 import time
 import asyncio
 import config
-from utils.embeds import success_embed, error_embed, info_embed, PremiumEmbed
+from utils.embeds import GuildEmbed, success_embed, error_embed, info_embed
 from utils.helpers import send_log
 
 
+class TicketSelect(discord.ui.Select):
+    def __init__(self, bot, lang):
+        self.bot = bot
+        self.lang = lang
+        opts = [
+            discord.SelectOption(label=self.bot.t(lang, "tickets.general"), emoji="❓", value="general", description=self.bot.t(lang, "tickets.general_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "tickets.support"), emoji="🛠️", value="support", description=self.bot.t(lang, "tickets.support_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "tickets.billing"), emoji="💰", value="billing", description=self.bot.t(lang, "tickets.billing_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "tickets.report"), emoji="🚨", value="report", description=self.bot.t(lang, "tickets.report_desc")),
+            discord.SelectOption(label=self.bot.t(lang, "tickets.other"), emoji="📝", value="other", description=self.bot.t(lang, "tickets.other_desc")),
+        ]
+        super().__init__(placeholder=self.bot.t(lang, "tickets.placeholder"), max_values=1, options=opts)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        g = await self.bot.db.get_guild(interaction.guild.id)
+        cat_id = g.get("ticket_category")
+        category = None
+        if cat_id:
+            category = interaction.guild.get_channel(cat_id)
+        name = f"ticket-{interaction.user.name.lower().replace(' ', '-')[:20]}"
+        existing = discord.utils.get(interaction.guild.text_channels, name=name)
+        if existing:
+            lang2 = await self.bot.get_lang(interaction.guild.id)
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang2, "errors.title"), self.bot.t(lang2, "tickets.already_open", channel=existing.mention)))
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, attach_files=True, embed_links=True),
+            interaction.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True, manage_permissions=True),
+        }
+        sup_role_id = g.get("ticket_support_role")
+        if sup_role_id:
+            sup_role = interaction.guild.get_role(sup_role_id)
+            if sup_role:
+                overwrites[sup_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        try:
+            channel = await interaction.guild.create_text_channel(name=name, category=category, overwrites=overwrites, reason=f"Ticket de {interaction.user}")
+            lang2 = await self.bot.get_lang(interaction.guild.id)
+            e = GuildEmbed(title=self.bot.t(lang2, "tickets.ticket_created"), description=self.bot.t(lang2, "tickets.ticket_desc", user=interaction.user.mention, reason=interaction.data["values"][0] if interaction.data.get("values") else "general"), color=config.COLORS["green"], guild=interaction.guild)
+            close_btn = discord.ui.Button(emoji="🔒", label=self.bot.t(lang2, "tickets.close"), style=discord.ButtonStyle.danger, custom_id="ticket_close")
+            claim_btn = discord.ui.Button(emoji="👋", label=self.bot.t(lang2, "tickets.claim"), style=discord.ButtonStyle.primary, custom_id="ticket_claim")
+
+            async def close_cb(inter: discord.Interaction):
+                await inter.response.defer()
+                lang3 = await self.bot.get_lang(inter.guild.id)
+                await inter.channel.delete(reason=f"Ticket cerrado por {inter.user}")
+                try:
+                    await inter.user.send(embed=info_embed(self.bot.t(lang3, "tickets.closed_title"), self.bot.t(lang3, "tickets.closed_desc", channel=inter.channel.name)))
+                except:
+                    pass
+
+            async def claim_cb(inter: discord.Interaction):
+                await inter.response.defer(ephemeral=True)
+                lang4 = await self.bot.get_lang(inter.guild.id)
+                e2 = inter.message.embeds[0]
+                e2.add_field(name=self.bot.t(lang4, "tickets.claimed_by"), value=inter.user.mention, inline=False)
+                await inter.message.edit(embed=e2)
+                await inter.followup.send(self.bot.t(lang4, "tickets.claimed_desc", user=inter.user.mention))
+
+            close_btn.callback = close_cb
+            claim_btn.callback = claim_cb
+            view = discord.ui.View()
+            view.add_item(close_btn)
+            view.add_item(claim_btn)
+            await channel.send(embed=e, view=view)
+            await interaction.followup.send(embed=success_embed(self.bot.t(lang2, "tickets.created"), self.bot.t(lang2, "tickets.created_desc", channel=channel.mention)))
+        except Exception as ex:
+            lang2 = await self.bot.get_lang(interaction.guild.id)
+            await interaction.followup.send(embed=error_embed(self.bot.t(lang2, "errors.title"), str(ex)))
+
+
 class Tickets(commands.Cog):
-    """🎫 Sistema de tickets con botones, categorías, transcript y más."""
+    """🎫 Sistema de tickets con selección de categoría."""
 
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_interaction(self, interaction: discord.Interaction):
-        if interaction.type != discord.InteractionType.component:
-            return
-        cid = interaction.data.get("custom_id", "")
-        if cid == "ticket_open":
-            await self._open_ticket(interaction)
-        elif cid == "ticket_close":
-            await self._close_ticket(interaction)
-        elif cid == "ticket_claim":
-            await self._claim_ticket(interaction)
-        elif cid == "ticket_delete":
-            await self._delete_ticket(interaction)
-
-    async def _open_ticket(self, interaction: discord.Interaction):
-        g = await self.bot.db.get_guild(interaction.guild.id)
-        if not g.get("ticket_enabled", 1):
-            return await interaction.response.send_message("Tickets desactivados.", ephemeral=True)
-        existing = await self.bot.db.get_user_open_ticket(interaction.user.id, interaction.guild.id)
-        if existing:
-            ch = interaction.guild.get_channel(existing["channel_id"])
-            if ch:
-                return await interaction.response.send_message(f"Ya tienes un ticket: {ch.mention}", ephemeral=True)
-        cat_id = g.get("ticket_category")
-        cat = interaction.guild.get_channel(cat_id) if cat_id else None
-        overwrites = {
-            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
-            interaction.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
-        }
-        try:
-            ch = await interaction.guild.create_text_channel(
-                f"ticket-{interaction.user.name.lower()[:20]}",
-                category=cat,
-                overwrites=overwrites,
-                reason=f"Ticket de {interaction.user}",
-            )
-            await self.bot.db.create_ticket(interaction.guild.id, ch.id, interaction.user.id)
-            embed = PremiumEmbed(title="🎫 Nuevo Ticket", description="Un miembro del staff te atenderá pronto.", color=config.COLORS["green"])
-            embed.add_field(name="👤 Creado por", value=interaction.user.mention)
-            view = discord.ui.View()
-            view.add_item(discord.ui.Button(label="🔒 Cerrar", style=discord.ButtonStyle.danger, custom_id="ticket_close", emoji="🔒"))
-            view.add_item(discord.ui.Button(label="📋 Reclamar", style=discord.ButtonStyle.secondary, custom_id="ticket_claim", emoji="📋"))
-            await ch.send(embed=embed, view=view)
-            await interaction.response.send_message(f"✅ Ticket creado: {ch.mention}", ephemeral=True)
-            await send_log(self.bot, interaction.guild.id, "tickets", embed)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-    async def _close_ticket(self, interaction: discord.Interaction):
-        ticket = await self.bot.db.get_ticket(interaction.channel.id)
-        if not ticket:
-            return await interaction.response.send_message("Este canal no es un ticket.", ephemeral=True)
-        if ticket["status"] == "closed":
-            return await interaction.response.send_message("Ya está cerrado.", ephemeral=True)
-        await self.bot.db.close_ticket(interaction.channel.id, interaction.user.id)
-        await interaction.response.send_message(embed=success_embed("🔒 Ticket cerrado", f"Por {interaction.user.mention}"))
-        await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="🗑️ Eliminar", style=discord.ButtonStyle.danger, custom_id="ticket_delete", emoji="🗑️"))
-        await interaction.channel.send(embed=info_embed("🗑️", "Presiona para eliminar el canal."), view=view)
-
-    async def _claim_ticket(self, interaction: discord.Interaction):
-        ticket = await self.bot.db.get_ticket(interaction.channel.id)
-        if not ticket:
-            return await interaction.response.send_message("No es un ticket.", ephemeral=True)
-        if ticket["claimer_id"]:
-            claimer = interaction.guild.get_member(ticket["claimer_id"])
-            return await interaction.response.send_message(f"Reclamado por {claimer.mention}", ephemeral=True)
-        await self.bot.db.claim_ticket(interaction.channel.id, interaction.user.id)
-        await interaction.response.send_message(embed=success_embed("📋 Ticket reclamado", interaction.user.mention))
-
-    async def _delete_ticket(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.manage_channels and not interaction.channel.name.startswith("closed-"):
-            return await interaction.response.send_message("No puedes eliminar.", ephemeral=True)
-        await interaction.response.defer()
-        await interaction.channel.delete(reason=f"Eliminado por {interaction.user}")
-
-    # ── Comandos ─────────────────────────────────────────────────────────────
-    ticket = app_commands.Group(name="ticket", description="🎫 Sistema de tickets")
-
-    @ticket.command(name="panel", description="🎫 Enviar panel de tickets")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(canal="Canal (opcional)")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def ticket_panel(self, interaction: discord.Interaction, canal: discord.TextChannel = None):
-        canal = canal or interaction.channel
+    @app_commands.command(name="ticket", description="Crear un ticket")
+    async def ticket(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        embed = PremiumEmbed(title="🎫 Sistema de Tickets", description="Presiona el botón para abrir un ticket.", color=config.COLORS["blue"])
-        embed.add_field(name="📋 ¿Cómo funciona?", value="1. Presiona 🎫\n2. Se crea un canal privado\n3. Un staff te atenderá", inline=False)
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="🎫 Abrir Ticket", style=discord.ButtonStyle.primary, custom_id="ticket_open", emoji="🎫"))
-        await canal.send(embed=embed, view=view)
-        await interaction.followup.send(f"✅ Panel enviado a {canal.mention}", ephemeral=True)
-
-    @ticket.command(name="create", description="🎫 Crear ticket manualmente")
-    async def ticket_create(self, interaction: discord.Interaction):
-        await self._open_ticket(interaction)
-
-    @ticket.command(name="close", description="🔒 Cerrar ticket actual")
-    async def ticket_close(self, interaction: discord.Interaction):
-        await self._close_ticket(interaction)
-
-    @ticket.command(name="reopen", description="🔓 Reabrir ticket")
-    @app_commands.default_permissions(manage_channels=True)
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def ticket_reopen(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        ticket = await self.bot.db.get_ticket(interaction.channel.id)
-        if not ticket:
-            return await interaction.followup.send("No es un ticket.", ephemeral=True)
-        await self.bot.db.reopen_ticket(interaction.channel.id)
-        await interaction.channel.edit(name=interaction.channel.name.replace("closed-", ""))
-        await interaction.followup.send(embed=success_embed("🔓 Ticket reabierto"))
-
-    @ticket.command(name="claim", description="📋 Reclamar ticket")
-    async def ticket_claim(self, interaction: discord.Interaction):
-        await self._claim_ticket(interaction)
-
-    @ticket.command(name="unclaim", description="📋 Liberar ticket")
-    @app_commands.default_permissions(manage_channels=True)
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def ticket_unclaim(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        ticket = await self.bot.db.get_ticket(interaction.channel.id)
-        if not ticket:
-            return await interaction.followup.send("No es un ticket.", ephemeral=True)
-        await self.bot.db.unclaim_ticket(interaction.channel.id)
-        await interaction.followup.send(embed=success_embed("📋 Ticket liberado"))
-
-    @ticket.command(name="adduser", description="➕ Añadir usuario al ticket")
-    @app_commands.default_permissions(manage_channels=True)
-    @app_commands.describe(user="Usuario")
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def ticket_adduser(self, interaction: discord.Interaction, user: discord.Member):
-        await interaction.response.defer()
-        await interaction.channel.set_permissions(user, read_messages=True, send_messages=True)
-        await interaction.followup.send(embed=success_embed("➕ Usuario añadido", user.mention))
-
-    @ticket.command(name="removeuser", description="➖ Quitar usuario del ticket")
-    @app_commands.default_permissions(manage_channels=True)
-    @app_commands.describe(user="Usuario")
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def ticket_removeuser(self, interaction: discord.Interaction, user: discord.Member):
-        await interaction.response.defer()
-        await interaction.channel.set_permissions(user, overwrite=None)
-        await interaction.followup.send(embed=success_embed("➖ Usuario quitado", user.mention))
-
-    @ticket.command(name="rename", description="✏️ Renombrar ticket")
-    @app_commands.default_permissions(manage_channels=True)
-    @app_commands.describe(name="Nuevo nombre")
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def ticket_rename(self, interaction: discord.Interaction, name: str):
-        await interaction.response.defer()
-        await interaction.channel.edit(name=name[:32])
-        await interaction.followup.send(embed=success_embed("✏️ Renombrado", name))
-
-    @ticket.command(name="setup", description="⚙️ Configurar tickets")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(categoria="Categoría para tickets", logs="Canal de logs")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def ticket_setup(self, interaction: discord.Interaction, categoria: discord.CategoryChannel, logs: discord.TextChannel = None):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, ticket_category=categoria.id)
-        if logs:
-            await self.bot.db.update_guild(interaction.guild.id, ticket_log_channel=logs.id)
-        await interaction.followup.send(embed=success_embed("⚙️ Tickets configurados", f"Categoría: {categoria.mention}"))
-
-    @ticket.command(name="config", description="📋 Ver configuración de tickets")
-    async def ticket_config(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = await self.bot.db.get_guild(interaction.guild.id)
-        embed = info_embed("🎫 Configuración de Tickets", f"Estado: {'✅' if g.get('ticket_enabled', 1) else '❌'}")
-        cat = interaction.guild.get_channel(g.get("ticket_category") or 0)
-        log = interaction.guild.get_channel(g.get("ticket_log_channel") or 0)
-        embed.add_field(name="📁 Categoría", value=cat.mention if cat else "❌", inline=True)
-        embed.add_field(name="📝 Logs", value=log.mention if log else "❌", inline=True)
-        embed.add_field(name="🔢 Límite abiertos", value=str(g.get("ticket_open_limit", 3)), inline=True)
-        await interaction.followup.send(embed=embed)
+        cat_id = g.get("ticket_category")
+        category = None
+        if cat_id:
+            category = interaction.guild.get_channel(cat_id)
+        name = f"ticket-{interaction.user.name.lower().replace(' ', '-')[:20]}"
+        existing = discord.utils.get(interaction.guild.text_channels, name=name)
+        if existing:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "tickets.already_open", channel=existing.mention)))
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, attach_files=True, embed_links=True),
+            interaction.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True, manage_permissions=True),
+        }
+        sup_role_id = g.get("ticket_support_role")
+        if sup_role_id:
+            sup_role = interaction.guild.get_role(sup_role_id)
+            if sup_role:
+                overwrites[sup_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        try:
+            channel = await interaction.guild.create_text_channel(name=name, category=category, overwrites=overwrites, reason=f"Ticket de {interaction.user}")
+            e = GuildEmbed(title=self.bot.t(lang, "tickets.ticket_created"), description=self.bot.t(lang, "tickets.ticket_desc", user=interaction.user.mention, reason="general"), color=config.COLORS["green"], guild=interaction.guild)
+            close_btn = discord.ui.Button(emoji="🔒", label=self.bot.t(lang, "tickets.close"), style=discord.ButtonStyle.danger, custom_id="ticket_close")
+            claim_btn = discord.ui.Button(emoji="👋", label=self.bot.t(lang, "tickets.claim"), style=discord.ButtonStyle.primary, custom_id="ticket_claim")
 
-    @ticket.command(name="stats", description="📊 Estadísticas de tickets")
+            async def close_cb(inter: discord.Interaction):
+                await inter.response.defer()
+                lang2 = await self.bot.get_lang(inter.guild.id)
+                await inter.channel.delete(reason=f"Ticket cerrado por {inter.user}")
+                try:
+                    await inter.user.send(embed=info_embed(self.bot.t(lang2, "tickets.closed_title"), self.bot.t(lang2, "tickets.closed_desc", channel=inter.channel.name)))
+                except:
+                    pass
+
+            async def claim_cb(inter: discord.Interaction):
+                await inter.response.defer(ephemeral=True)
+                lang2 = await self.bot.get_lang(inter.guild.id)
+                e2 = inter.message.embeds[0]
+                e2.add_field(name=self.bot.t(lang2, "tickets.claimed_by"), value=inter.user.mention, inline=False)
+                await inter.message.edit(embed=e2)
+                await inter.followup.send(self.bot.t(lang2, "tickets.claimed_desc", user=inter.user.mention))
+
+            close_btn.callback = close_cb
+            claim_btn.callback = claim_cb
+            view = discord.ui.View()
+            view.add_item(close_btn)
+            view.add_item(claim_btn)
+            await channel.send(embed=e, view=view)
+            await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.created"), self.bot.t(lang, "tickets.created_desc", channel=channel.mention)))
+        except Exception as ex:
+            await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), str(ex)))
+
+    @app_commands.command(name="ticketpanel", description="Crear panel de tickets con selector")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(channel="Canal", title="Título (opcional)", description="Descripción (opcional)")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def ticket_panel(self, interaction: discord.Interaction, channel: discord.TextChannel, title: str = None, description: str = None):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        embed = GuildEmbed(
+            title=title or self.bot.t(lang, "tickets.panel_title"),
+            description=description or self.bot.t(lang, "tickets.panel_desc"),
+            color=config.COLORS["blue"],
+            guild=interaction.guild,
+        )
+        view = discord.ui.View()
+        view.add_item(TicketSelect(self.bot, lang))
+        await channel.send(embed=embed, view=view)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.panel_created"), self.bot.t(lang, "tickets.panel_created_desc", channel=channel.mention)))
+
+    @app_commands.command(name="ticketconfig", description="Configurar tickets")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(category="Categoría para tickets", support_role="Rol de soporte")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def ticket_config(self, interaction: discord.Interaction, category: discord.CategoryChannel = None, support_role: discord.Role = None):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if category:
+            await self.bot.db.update_guild(interaction.guild.id, ticket_category=category.id)
+        if support_role:
+            await self.bot.db.update_guild(interaction.guild.id, ticket_support_role=support_role.id)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.config_updated")))
+
+    @app_commands.command(name="add", description="Añadir usuario a un ticket")
+    @app_commands.describe(user="Usuario")
+    async def add(self, interaction: discord.Interaction, user: discord.Member):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if "ticket-" not in interaction.channel.name:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "tickets.not_ticket_channel")))
+        await interaction.channel.set_permissions(user, view_channel=True, send_messages=True)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.user_added"), self.bot.t(lang, "tickets.user_added_desc", user=user.mention)))
+
+    @app_commands.command(name="remove", description="Quitar usuario de un ticket")
+    @app_commands.describe(user="Usuario")
+    async def remove(self, interaction: discord.Interaction, user: discord.Member):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if "ticket-" not in interaction.channel.name:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "tickets.not_ticket_channel")))
+        await interaction.channel.set_permissions(user, overwrite=None)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.user_removed"), self.bot.t(lang, "tickets.user_removed_desc", user=user.mention)))
+
+    @app_commands.command(name="rename", description="Renombrar ticket")
+    @app_commands.describe(name="Nuevo nombre")
+    async def rename(self, interaction: discord.Interaction, name: str):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if "ticket-" not in interaction.channel.name:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "tickets.not_ticket_channel")))
+        await interaction.channel.edit(name=name[:32].lower().replace(" ", "-"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "tickets.renamed"), self.bot.t(lang, "tickets.renamed_desc", name=name)))
+
+    @app_commands.command(name="close", description="Cerrar ticket actual")
+    async def close(self, interaction: discord.Interaction):
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if "ticket-" not in interaction.channel.name:
+            return await interaction.response.send_message(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "tickets.not_ticket_channel")), ephemeral=True)
+        await interaction.response.send_message(embed=info_embed(self.bot.t(lang, "tickets.closing"), self.bot.t(lang, "tickets.closing_desc")))
+        await asyncio.sleep(3)
+        await interaction.channel.delete(reason=f"Ticket cerrado por {interaction.user}")
+
+    @app_commands.command(name="ticketstats", description="Estadísticas de tickets")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def ticket_stats(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        rows = await self.bot.db.get_guild_tickets(interaction.guild.id)
-        total = len(rows)
-        open_t = sum(1 for r in rows if r["status"] == "open")
-        claimed = sum(1 for r in rows if r["status"] == "claimed")
-        closed = sum(1 for r in rows if r["status"] == "closed")
-        embed = PremiumEmbed(title="📊 Estadísticas de Tickets", color=config.EMBED_COLOR)
-        embed.add_field(name="📋 Total", value=str(total), inline=True)
-        embed.add_field(name="🟢 Abiertos", value=str(open_t), inline=True)
-        embed.add_field(name="📋 Reclamados", value=str(claimed), inline=True)
-        embed.add_field(name="🔒 Cerrados", value=str(closed), inline=True)
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        ticket_channels = [ch for ch in interaction.guild.text_channels if ch.name.startswith("ticket-")]
+        embed = GuildEmbed(title=self.bot.t(lang, "tickets.stats_title"), color=config.COLORS["blue"], guild=interaction.guild)
+        embed.add_field(name=self.bot.t(lang, "tickets.open_tickets"), value=str(len(ticket_channels)), inline=True)
+        embed.add_field(name=self.bot.t(lang, "tickets.total_tickets"), value=str(0), inline=True)
         await interaction.followup.send(embed=embed)
 
 

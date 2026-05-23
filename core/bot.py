@@ -3,6 +3,7 @@ import discord
 import logging
 from discord.ext import commands
 from database import Database
+from utils.i18n import I18n
 import config
 
 
@@ -21,8 +22,16 @@ class Bot(commands.Bot):
             ),
         )
         self.db = Database()
+        self.i18n = I18n()
         self.uptime = None
         self.logger = logging.getLogger("Bot")
+
+    async def get_lang(self, guild_id: int) -> str:
+        g = await self.db.get_guild(guild_id)
+        return g.get("language", "es")
+
+    def t(self, lang: str, key: str, **kwargs) -> str:
+        return self.i18n.t(lang, key, **kwargs)
 
     async def _get_prefix(self, msg: discord.Message):
         if not msg.guild:
@@ -49,11 +58,12 @@ class Bot(commands.Bot):
                 self.logger.error(f"Error loading {cog}: {e}")
 
     async def _update_status(self):
+        lang = await self.get_lang(self.guilds[0].id) if self.guilds else "es"
         if not self.guilds:
-            name = "0 servidores"
+            name = self.t(lang, "status.no_servers")
         else:
             guild = self.guilds[0]
-            name = f"{guild.name} | {guild.member_count} miembros"
+            name = self.t(lang, "status.watching", guild=guild.name, members=str(guild.member_count))
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,

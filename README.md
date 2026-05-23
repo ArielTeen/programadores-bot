@@ -1,4 +1,4 @@
-# 🤖 Teen Bot — Bot Profesional de Discord
+# 🤖 Bot Profesional de Discord
 
 Bot premium para Discord con **180+ comandos**, dashboard web, sistema de moderación, economía, niveles, reputación, tickets, automod, anti-nuke, bienvenidas, logs, verificación, reaction roles, giveaways, sugerencias, reportes y más.
 
@@ -104,7 +104,7 @@ Abrir `http://localhost:5000`
 ### Opción 1: Subida directa
 El archivo `discloud.config` ya está configurado:
 ```
-NAME=Teen Bot
+NAME=Bot
 MAIN=main.py
 TYPE=python
 MEMORY=512
@@ -125,7 +125,7 @@ En el panel de Discloud, añade:
 ## 📁 Estructura
 
 ```
-Teen Bot/
+Bot/
 ├── main.py                 # Entry point
 ├── config.py               # Configuración global
 ├── .env                    # Variables de entorno

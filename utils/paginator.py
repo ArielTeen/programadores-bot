@@ -23,7 +23,12 @@ class ButtonPaginator(discord.ui.View):
         embed = self.pages[self.current].copy()
         if len(self.pages) > 1:
             embed.set_footer(
-                text=f"Pagina {self.current + 1}/{len(self.pages)}  ·  Comunidad de Programadores",
+            guild_name = self.interaction.guild.name if self.interaction.guild else ""
+            footer = f"Pagina {self.current + 1}/{len(self.pages)}"
+            if guild_name:
+                footer += f"  ·  {guild_name}"
+            embed.set_footer(
+                text=footer,
                 icon_url=(
                     self.interaction.client.user.display_avatar.url
                     if self.interaction.client and self.interaction.client.user
@@ -112,8 +117,12 @@ class ReactionPaginator:
             return
         embed = self.pages[0].copy()
         if len(self.pages) > 1:
+            guild_name = self.interaction.guild.name if self.interaction.guild else ""
+            footer = f"Pagina 1/{len(self.pages)}"
+            if guild_name:
+                footer += f"  ·  {guild_name}"
             embed.set_footer(
-                text=f"Pagina 1/{len(self.pages)}  ·  Comunidad de Programadores",
+                text=footer,
                 icon_url=(
                     self.interaction.client.user.display_avatar.url
                     if self.interaction.client and self.interaction.client.user
@@ -182,8 +191,12 @@ class ReactionPaginator:
 
     async def _update(self):
         embed = self.pages[self.current].copy()
+        guild_name = self.interaction.guild.name if self.interaction.guild else ""
+        footer = f"Pagina {self.current + 1}/{len(self.pages)}"
+        if guild_name:
+            footer += f"  ·  {guild_name}"
         embed.set_footer(
-            text=f"Pagina {self.current + 1}/{len(self.pages)}  ·  Comunidad de Programadores",
+            text=footer,
             icon_url=(
                 self.interaction.client.user.display_avatar.url
                 if self.interaction.client and self.interaction.client.user

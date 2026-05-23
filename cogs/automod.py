@@ -5,7 +5,7 @@ import time
 import re
 import json
 import config
-from utils.embeds import success_embed, error_embed, info_embed, PremiumEmbed
+from utils.embeds import success_embed, error_embed, info_embed, warning_embed, GuildEmbed
 from utils.helpers import send_log
 
 
@@ -22,6 +22,7 @@ class AutoMod(commands.Cog):
         if message.author.bot or not message.guild:
             return
         g = await self.bot.db.get_guild(message.guild.id)
+        lang = await self.bot.get_lang(message.guild.id)
         if not g.get("automod_enabled", 0):
             return
         amc = g.get("automod_config", {})
@@ -40,35 +41,35 @@ class AutoMod(commands.Cog):
 
         # Anti-flood
         if amc.get("flood", True):
-            await self._check_flood(message, g)
+            await self._check_flood(message, g, lang)
 
         # Anti-links
         if amc.get("links", True):
-            await self._check_links(message, g)
+            await self._check_links(message, g, lang)
 
         # Anti-invites
         if amc.get("invites", True):
-            await self._check_invites(message, g)
+            await self._check_invites(message, g, lang)
 
         # Anti-mentions
         if amc.get("mentions", True):
-            await self._check_mentions(message, g)
+            await self._check_mentions(message, g, lang)
 
         # Anti-caps
         if amc.get("caps", True):
-            await self._check_caps(message, g)
+            await self._check_caps(message, g, lang)
 
         # Anti-emoji
         if amc.get("emoji_spam", True):
-            await self._check_emoji(message, g)
+            await self._check_emoji(message, g, lang)
 
         # Anti-zalgo
         if amc.get("zalgo", True):
-            await self._check_zalgo(message, g)
+            await self._check_zalgo(message, g, lang)
 
         # Blacklist words
         if amc.get("bad_words", True):
-            await self._check_bad_words(message, g)
+            await self._check_bad_words(message, g, lang)
 
     async def _punish(self, message, guild_conf, action="warn"):
         punishment = guild_conf.get("automod_config", {}).get("punishment", "warn")
@@ -93,7 +94,7 @@ class AutoMod(commands.Cog):
         except:
             pass
 
-    async def _check_flood(self, msg, g):
+    async def _check_flood(self, msg, g, lang):
         now = time.time()
         key = f"{msg.author.id}:{msg.channel.id}"
         if key not in self.flood_cache:
@@ -102,54 +103,54 @@ class AutoMod(commands.Cog):
         self.flood_cache[key] = [t for t in self.flood_cache[key] if now - t < config.FLOOD_WINDOW]
         if len(self.flood_cache[key]) > config.FLOOD_LIMIT:
             await self._punish(msg, g)
-            emb = warning_embed("🚫 Anti-Flood", f"{msg.author.mention} no hagas spam.")
+            emb = warning_embed(self.bot.t(lang, "automod.antiflood"), self.bot.t(lang, "automod.flood_warning", user=msg.author.mention))
             await msg.channel.send(embed=emb, delete_after=5)
             await send_log(self.bot, msg.guild.id, "automod", emb)
 
-    async def _check_links(self, msg, g):
+    async def _check_links(self, msg, g, lang):
         if "http://" in msg.content or "https://" in msg.content:
             count = sum(1 for w in msg.content.split() if w.startswith(("http://", "https://")))
             if count > config.MAX_LINKS:
                 await self._punish(msg, g)
-                emb = warning_embed("🚫 Anti-Links", f"{msg.author.mention} demasiados enlaces.")
+                emb = warning_embed(self.bot.t(lang, "automod.antilinks"), self.bot.t(lang, "automod.links_warning", user=msg.author.mention))
                 await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_invites(self, msg, g):
+    async def _check_invites(self, msg, g, lang):
         if re.search(r"(discord\.gg/|discord\.com/invite/|discordapp\.com/invite/)", msg.content, re.I):
             await self._punish(msg, g)
-            emb = warning_embed("🚫 Anti-Invites", f"{msg.author.mention} no envíes invitaciones.")
+            emb = warning_embed(self.bot.t(lang, "automod.antiinvites"), self.bot.t(lang, "automod.invites_warning", user=msg.author.mention))
             await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_mentions(self, msg, g):
+    async def _check_mentions(self, msg, g, lang):
         if len(msg.mentions) > config.MAX_MENTIONS:
             await self._punish(msg, g)
-            emb = warning_embed("🚫 Anti-Menciones", f"{msg.author.mention} demasiadas menciones.")
+            emb = warning_embed(self.bot.t(lang, "automod.antimentions"), self.bot.t(lang, "automod.mentions_warning", user=msg.author.mention))
             await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_caps(self, msg, g):
+    async def _check_caps(self, msg, g, lang):
         if len(msg.content) > 10:
             caps = sum(1 for c in msg.content if c.isupper())
             if caps / len(msg.content) * 100 > config.MAX_CAPS_PERCENT:
                 await self._punish(msg, g, "delete")
-                emb = warning_embed("🚫 Anti-Caps", f"{msg.author.mention} demasiadas mayúsculas.")
+                emb = warning_embed(self.bot.t(lang, "automod.anticaps"), self.bot.t(lang, "automod.caps_warning", user=msg.author.mention))
                 await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_emoji(self, msg, g):
+    async def _check_emoji(self, msg, g, lang):
         emoji_pattern = re.compile(r"<a?:\w+:\d+>|[\U0001F300-\U0001FFFF\u2600-\u27BF]")
         emojis = emoji_pattern.findall(msg.content)
         if len(emojis) > config.MAX_EMOJI_COUNT:
             await self._punish(msg, g, "delete")
-            emb = warning_embed("🚫 Anti-Emoji", f"{msg.author.mention} demasiados emojis.")
+            emb = warning_embed(self.bot.t(lang, "automod.antiemoji"), self.bot.t(lang, "automod.emoji_warning", user=msg.author.mention))
             await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_zalgo(self, msg, g):
+    async def _check_zalgo(self, msg, g, lang):
         zalgo = re.findall(r"[\u0300-\u036f\u0483-\u0489\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7-\u06e8\u06ea-\u06ed]", msg.content)
         if len(zalgo) > 10:
             await self._punish(msg, g, "delete")
-            emb = warning_embed("🚫 Anti-Zalgo", f"{msg.author.mention} texto corrupto.")
+            emb = warning_embed(self.bot.t(lang, "automod.antizalgo"), self.bot.t(lang, "automod.zalgo_warning", user=msg.author.mention))
             await msg.channel.send(embed=emb, delete_after=5)
 
-    async def _check_bad_words(self, msg, g):
+    async def _check_bad_words(self, msg, g, lang):
         words = await self.bot.db.get_blacklist_words(msg.guild.id)
         if not words:
             return
@@ -157,7 +158,7 @@ class AutoMod(commands.Cog):
         for word in words:
             if word.lower() in content.split():
                 await self._punish(msg, g)
-                emb = warning_embed("🚫 Palabra prohibida", f"{msg.author.mention} contenido no permitido.")
+                emb = warning_embed(self.bot.t(lang, "automod.bad_words"), self.bot.t(lang, "automod.badword_warning", user=msg.author.mention))
                 await msg.channel.send(embed=emb, delete_after=5)
                 break
 
@@ -168,6 +169,7 @@ class AutoMod(commands.Cog):
         g = await self.bot.db.get_guild(member.guild.id)
         if not g.get("automod_enabled", 0):
             return
+        lang = await self.bot.get_lang(member.guild.id)
         amc = g.get("automod_config", {})
         if isinstance(amc, str):
             try:
@@ -186,7 +188,7 @@ class AutoMod(commands.Cog):
             if len(self.raid_cache[gid]) > config.RAID_JOIN_LIMIT:
                 try:
                     await member.guild.edit(verification_level=discord.VerificationLevel.high, reason="Anti-raid")
-                    emb = warning_embed("🚨 Anti-Raid", "Posible raid detectada. Verificación aumentada.")
+                    emb = warning_embed(self.bot.t(lang, "automod.anti_raid"), self.bot.t(lang, "automod.raid_warning"))
                     await send_log(self.bot, member.guild.id, "automod", emb)
                 except:
                     pass
@@ -195,7 +197,7 @@ class AutoMod(commands.Cog):
         if amc.get("alt_account", False):
             age = (discord.utils.utcnow() - member.created_at).days
             if age < config.ALT_ACCOUNT_AGE:
-                emb = warning_embed("⚠️ Cuenta nueva", f"{member.mention} cuenta creada hace {age} días.")
+                emb = warning_embed(self.bot.t(lang, "automod.alt_account_warning"), self.bot.t(lang, "automod.alt_account_desc", user=member.mention, days=age))
                 await send_log(self.bot, member.guild.id, "automod", emb)
 
     # ── Comandos ─────────────────────────────────────────────────────────────
@@ -206,23 +208,26 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def am_enable(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = await self.bot.db.get_guild(interaction.guild.id)
         await self.bot.db.update_guild(interaction.guild.id, automod_enabled=1)
-        await interaction.followup.send(embed=success_embed("✅ Automod activado"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.enabled")))
 
     @automod.command(name="disable", description="❌ Desactivar automod")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def am_disable(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.update_guild(interaction.guild.id, automod_enabled=0)
-        await interaction.followup.send(embed=success_embed("❌ Automod desactivado"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.disabled")))
 
     @automod.command(name="status", description="📊 Estado del automod")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def am_status(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = await self.bot.db.get_guild(interaction.guild.id)
         amc = g.get("automod_config", {})
         if isinstance(amc, str):
@@ -231,22 +236,22 @@ class AutoMod(commands.Cog):
             except:
                 amc = {}
         enabled = g.get("automod_enabled", 0)
-        embed = PremiumEmbed(
-            title="🤖 Automod Status",
-            description="✅ Activado" if enabled else "❌ Desactivado",
+        embed = GuildEmbed(
+            title=self.bot.t(lang, "automod.status_title"),
+            description=self.bot.t(lang, "automod.status_enabled") if enabled else self.bot.t(lang, "automod.status_disabled"),
             color=config.SUCCESS_COLOR if enabled else config.ERROR_COLOR,
         )
         modules = {
-            "flood": "Anti-Flood", "links": "Anti-Links", "invites": "Anti-Invites",
-            "mentions": "Anti-Menciones", "caps": "Anti-Caps", "emoji_spam": "Anti-Emoji",
-            "zalgo": "Anti-Zalgo", "bad_words": "Palabras prohibidas", "raid": "Anti-Raid",
+            "flood": "automod.antiflood", "links": "automod.antilinks", "invites": "automod.antiinvites",
+            "mentions": "automod.antimentions", "caps": "automod.anticaps", "emoji_spam": "automod.antiemoji",
+            "zalgo": "automod.antizalgo", "bad_words": "automod.bad_words", "raid": "automod.anti_raid",
         }
-        for key, name in modules.items():
+        for key, name_key in modules.items():
             val = amc.get(key, True)
-            embed.add_field(name=name, value="✅" if val else "❌", inline=True)
+            embed.add_field(name=self.bot.t(lang, name_key), value="✅" if val else "❌", inline=True)
         words = await self.bot.db.get_blacklist_words(interaction.guild.id)
-        embed.add_field(name="📝 Palabras en blacklist", value=str(len(words)), inline=False)
-        embed.add_field(name="⚡ Castigo", value=amc.get("punishment", "warn"), inline=True)
+        embed.add_field(name=self.bot.t(lang, "automod.blacklist_count"), value=str(len(words)), inline=False)
+        embed.add_field(name=self.bot.t(lang, "automod.punishment"), value=amc.get("punishment", "warn"), inline=True)
         await interaction.followup.send(embed=embed)
 
     @automod.command(name="config", description="⚙️ Configurar módulo de automod")
@@ -255,6 +260,7 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def am_config(self, interaction: discord.Interaction, module: str, enabled: bool):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         g = await self.bot.db.get_guild(interaction.guild.id)
         amc = g.get("automod_config", {})
         if isinstance(amc, str):
@@ -264,7 +270,8 @@ class AutoMod(commands.Cog):
                 amc = {}
         amc[module] = enabled
         await self.bot.db.update_guild(interaction.guild.id, automod_config=amc)
-        await interaction.followup.send(embed=success_embed("⚙️ Config actualizada", f"{module}: {'✅' if enabled else '❌'}"))
+        status = "✅" if enabled else "❌"
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.config_updated_module", module=module, status=status)))
 
     @am_config.autocomplete("module")
     async def am_config_ac(self, interaction: discord.Interaction, current: str):
@@ -277,8 +284,9 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def am_punishment(self, interaction: discord.Interaction, action: str):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         if action not in ("delete", "warn", "mute", "kick", "ban"):
-            return await interaction.followup.send(embed=error_embed("❌", "Opciones: delete, warn, mute, kick, ban"))
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "automod.punishment_options")))
         g = await self.bot.db.get_guild(interaction.guild.id)
         amc = g.get("automod_config", {})
         if isinstance(amc, str):
@@ -288,7 +296,7 @@ class AutoMod(commands.Cog):
                 amc = {}
         amc["punishment"] = action
         await self.bot.db.update_guild(interaction.guild.id, automod_config=amc)
-        await interaction.followup.send(embed=success_embed("⚡ Castigo actualizado", action))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.punishment_updated"), self.bot.t(lang, "automod.punishment_updated_desc", action=action)))
 
     @automod.command(name="whitelist", description="➕ Añadir rol a whitelist de automod")
     @app_commands.default_permissions(administrator=True)
@@ -296,8 +304,9 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def am_whitelist(self, interaction: discord.Interaction, role: discord.Role):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.add_automod_whitelist(interaction.guild.id, role.id, "role")
-        await interaction.followup.send(embed=success_embed("➕ Rol en whitelist", role.mention))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.whitelist_added"), self.bot.t(lang, "automod.whitelist_added_desc", role=role.mention)))
 
     blacklist = app_commands.Group(name="automod_blacklist", description="📝 Gestionar blacklist de palabras")
 
@@ -307,8 +316,9 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def bl_add(self, interaction: discord.Interaction, word: str):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.add_blacklist_word(interaction.guild.id, word)
-        await interaction.followup.send(embed=success_embed("➕ Palabra añadida", f"`{word}`"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.bl_added"), self.bot.t(lang, "automod.bl_added_desc", word=word)))
 
     @blacklist.command(name="remove", description="➖ Quitar palabra de blacklist")
     @app_commands.default_permissions(administrator=True)
@@ -316,18 +326,20 @@ class AutoMod(commands.Cog):
     @app_commands.checks.has_permissions(administrator=True)
     async def bl_remove(self, interaction: discord.Interaction, word: str):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.remove_blacklist_word(interaction.guild.id, word)
-        await interaction.followup.send(embed=success_embed("➖ Palabra quitada", f"`{word}`"))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "automod.bl_removed"), self.bot.t(lang, "automod.bl_removed_desc", word=word)))
 
     @blacklist.command(name="list", description="📋 Listar palabras en blacklist")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
     async def bl_list(self, interaction: discord.Interaction):
         await interaction.response.defer()
+        lang = await self.bot.get_lang(interaction.guild.id)
         words = await self.bot.db.get_blacklist_words(interaction.guild.id)
         if not words:
-            return await interaction.followup.send(embed=info_embed("📋 Blacklist", "No hay palabras."))
-        embed = PremiumEmbed(title="📋 Blacklist de palabras", description="\n".join(f"`{w}`" for w in words), color=config.EMBED_COLOR)
+            return await interaction.followup.send(embed=info_embed(self.bot.t(lang, "automod.bl_title"), self.bot.t(lang, "automod.bl_empty")))
+        embed = GuildEmbed(title=self.bot.t(lang, "automod.bl_title"), description="\n".join(f"`{w}`" for w in words), color=config.EMBED_COLOR)
         await interaction.followup.send(embed=embed)
 
 

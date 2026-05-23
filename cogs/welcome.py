@@ -2,209 +2,195 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import config
-from utils.embeds import PremiumEmbed, success_embed, info_embed
+from utils.embeds import GuildEmbed, success_embed, error_embed, info_embed
 from utils.helpers import send_log
 
 
 class Welcome(commands.Cog):
-    """👋 Bienvenidas, despedidas y autoroles."""
+    """👋 Bienvenidas, despedidas y autorol."""
 
     def __init__(self, bot):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        if member.bot:
-            return
-        g = await self.bot.db.get_guild(member.guild.id)
-        if not g.get("welcome_enabled", 1):
-            return
+    async def on_member_join(self, member):
+        guild = member.guild
+        g = await self.bot.db.get_guild(guild.id)
+        lang = await self.bot.get_lang(guild.id)
 
-        # Welcome message
-        ch_id = g.get("welcome_channel")
-        if ch_id:
-            ch = member.guild.get_channel(ch_id)
-            if ch:
-                msg = g.get("welcome_message", "¡Bienvenido {user} a **{guild}**!").format(
-                    user=member.mention, guild=member.guild.name, name=member.name
-                )
-                embed = PremiumEmbed(
-                    title=f"👋 ¡Bienvenido a {member.guild.name}!",
+        # Autorol
+        ar_ids = g.get("auto_roles", [])
+        if ar_ids:
+            for rid in ar_ids:
+                role = guild.get_role(rid)
+                if role and role < guild.me.top_role:
+                    try:
+                        await member.add_roles(role, reason="Autorol")
+                    except:
+                        pass
+
+        # Bienvenida
+        wc_id = g.get("welcome_channel")
+        if wc_id:
+            wc = guild.get_channel(wc_id)
+            if wc:
+                msg = g.get("welcome_message", self.bot.t(lang, "welcome.default_welcome", user=member.mention, guild=guild.name))
+                msg = msg.replace("{user}", member.mention).replace("{guild}", guild.name).replace("{members}", str(len(guild.members)))
+                embed = GuildEmbed(
+                    title=self.bot.t(lang, "welcome.welcome_title"),
                     description=msg,
                     color=config.COLORS["green"],
+                    guild=guild,
                 )
                 embed.set_thumbnail(url=member.display_avatar.url)
-                embed.add_field(name="Miembros", value=str(member.guild.member_count), inline=True)
-                embed.add_field(name="🆔 ID", value=str(member.id), inline=True)
                 try:
-                    await ch.send(embed=embed)
+                    await wc.send(embed=embed)
                 except:
                     pass
 
-        # Autorole
-        autoroles = await self.bot.db.get_automod_whitelist(member.guild.id, "autorole")
-        for rid in autoroles:
-            role = member.guild.get_role(rid)
-            if role:
-                try:
-                    await member.add_roles(role, reason="Autorol")
-                except:
-                    pass
-
-        # Log
-        log_embed = PremiumEmbed(title="Miembro Unido", color=config.COLORS["green"])
-        log_embed.add_field(name="Usuario", value=member.mention, inline=True)
-        log_embed.add_field(name="ID", value=str(member.id), inline=True)
-        log_embed.add_field(name="Cuenta creada", value=f"<t:{int(member.created_at.timestamp())}:R>f", inline=False)
-        await send_log(self.bot, member.guild.id, "members", log_embed)
+        # Bienvenida DM
+        wdm = g.get("welcome_dm", 0)
+        if wdm:
+            try:
+                e = GuildEmbed(
+                    title=self.bot.t(lang, "welcome.dm_title", guild=guild.name),
+                    description=self.bot.t(lang, "welcome.dm_desc", guild=guild.name),
+                    color=config.COLORS["green"],
+                    guild=guild,
+                )
+                await member.send(embed=e)
+            except:
+                pass
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
-        if member.bot:
+    async def on_member_remove(self, member):
+        guild = member.guild
+        g = await self.bot.db.get_guild(guild.id)
+        lang = await self.bot.get_lang(guild.id)
+        gc_id = g.get("goodbye_channel")
+        if not gc_id:
             return
-        g = await self.bot.db.get_guild(member.guild.id)
-        if not g.get("goodbye_enabled", 1):
+        gc = guild.get_channel(gc_id)
+        if not gc:
             return
-        ch_id = g.get("goodbye_channel") or g.get("welcome_channel")
-        if ch_id:
-            ch = member.guild.get_channel(ch_id)
-            if ch:
-                msg = g.get("goodbye_message", "{user} ha abandonado el servidor.").format(
-                    user=member.name, guild=member.guild.name, name=member.name
-                )
-                embed = PremiumEmbed(
-                    title=f"👋 {member.name} ha salido",
-                    description=msg,
-                    color=config.COLORS["orange"],
-                )
-                embed.set_thumbnail(url=member.display_avatar.url)
-                embed.add_field(name="Miembros ahora", value=str(member.guild.member_count))
-                try:
-                    await ch.send(embed=embed)
-                except:
-                    pass
+        msg = g.get("goodbye_message", self.bot.t(lang, "welcome.default_goodbye", user=member.name, guild=guild.name))
+        msg = msg.replace("{user}", member.name).replace("{guild}", guild.name)
+        embed = GuildEmbed(
+            title=self.bot.t(lang, "welcome.goodbye_title"),
+            description=msg,
+            color=config.COLORS["red"],
+            guild=guild,
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        try:
+            await gc.send(embed=embed)
+        except:
+            pass
 
-        log_embed = PremiumEmbed(title="Miembro Salió", color=config.COLORS["orange"])
-        log_embed.add_field(name="Usuario", value=str(member), inline=True)
-        log_embed.add_field(name="ID", value=str(member.id), inline=True)
-        await send_log(self.bot, member.guild.id, "members", log_embed)
-
-    @commands.Cog.listener()
-    async def on_member_boost(self, member: discord.Member):
-        log_embed = PremiumEmbed(title="Boost!", description=f"{member.mention} boosteó el servidor!f", color=config.COLORS["purple"])
-        await send_log(self.bot, member.guild.id, "members", log_embed)
-
-    # ── Comandos ─────────────────────────────────────────────────────────────
     welcome = app_commands.Group(name="welcome", description="Configurar bienvenidas")
 
-    @welcome.command(name="setup", description="Configurar bienvenidas")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(channel="Canal", message="Mensaje ({user}, {guild}, {name})")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def welcome_setup(self, interaction, channel: discord.TextChannel, message: str = None):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, welcome_channel=channel.id)
-        if message:
-            await self.bot.db.update_guild(interaction.guild.id, welcome_message=message)
-        await interaction.followup.send(embed=success_embed("👋 Bienvenidas configuradas", channel.mention))
-
-    @welcome.command(name="enable", description="Activar bienvenidas")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def welcome_enable(self, interaction):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, welcome_enabled=1)
-        await interaction.followup.send(embed=success_embed("✅ Bienvenidas activadas"))
-
-    @welcome.command(name="disable", description="Desactivar bienvenidas")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def welcome_disable(self, interaction):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, welcome_enabled=0)
-        await interaction.followup.send(embed=success_embed("❌ Bienvenidas desactivadas"))
-
-    @welcome.command(name="test", description="Probar mensaje de bienvenida")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.checks.has_permissions(administrator=True)
-    async def welcome_test(self, interaction):
-        await interaction.response.defer()
-        g = await self.bot.db.get_guild(interaction.guild.id)
-        msg = g.get("welcome_message", "¡Bienvenido {user} a **{guild}**!").format(
-            user=interaction.user.mention, guild=interaction.guild.name, name=interaction.user.name
-        )
-        embed = PremiumEmbed(title="Bienvenida (test)", description=msg, color=config.COLORS["green"])
-        await interaction.followup.send(embed=embed)
-
-    @welcome.command(name="channel", description="Cambiar canal de bienvenidas")
+    @welcome.command(name="channel", description="Establecer canal de bienvenidas")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
-    async def welcome_channel(self, interaction, channel: discord.TextChannel):
-        await interaction.response.defer()
+    async def welcome_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
         await self.bot.db.update_guild(interaction.guild.id, welcome_channel=channel.id)
-        await interaction.followup.send(embed=success_embed("📝 Canal de bienvenidas", channel.mention))
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.channel_set"), self.bot.t(lang, "welcome.channel_set_desc", channel=channel.mention)))
+
+    @welcome.command(name="message", description="Establecer mensaje de bienvenida")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(message="Mensaje ({user}, {guild}, {members})")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def welcome_message(self, interaction: discord.Interaction, message: str):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        await self.bot.db.update_guild(interaction.guild.id, welcome_message=message)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.message_set"), self.bot.t(lang, "welcome.message_set_desc")))
+
+    @welcome.command(name="dm", description="Activar/desactivar DM de bienvenida")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(enabled="True o False")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def welcome_dm(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        await self.bot.db.update_guild(interaction.guild.id, welcome_dm=1 if enabled else 0)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.dm_set"), self.bot.t(lang, "welcome.dm_set_desc", state=self.bot.t(lang, "common.yes") if enabled else self.bot.t(lang, "common.no"))))
 
     goodbye = app_commands.Group(name="goodbye", description="Configurar despedidas")
 
-    @goodbye.command(name="enable", description="Activar despedidas")
+    @goodbye.command(name="channel", description="Establecer canal de despedidas")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(channel="Canal")
     @app_commands.checks.has_permissions(administrator=True)
-    async def goodbye_enable(self, interaction):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, goodbye_enabled=1)
-        await interaction.followup.send(embed=success_embed("✅ Despedidas activadas"))
+    async def goodbye_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        await self.bot.db.update_guild(interaction.guild.id, goodbye_channel=channel.id)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.goodbye_channel_set"), self.bot.t(lang, "welcome.goodbye_channel_set_desc", channel=channel.mention)))
 
-    @goodbye.command(name="disable", description="Desactivar despedidas")
+    @goodbye.command(name="message", description="Establecer mensaje de despedida")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(message="Mensaje ({user}, {guild})")
     @app_commands.checks.has_permissions(administrator=True)
-    async def goodbye_disable(self, interaction):
-        await interaction.response.defer()
-        await self.bot.db.update_guild(interaction.guild.id, goodbye_enabled=0)
-        await interaction.followup.send(embed=success_embed("❌ Despedidas desactivadas"))
+    async def goodbye_message(self, interaction: discord.Interaction, message: str):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        await self.bot.db.update_guild(interaction.guild.id, goodbye_message=message)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.goodbye_message_set"), self.bot.t(lang, "welcome.goodbye_message_set_desc")))
 
-    @goodbye.command(name="test", description="Probar mensaje de despedida")
+    autorol = app_commands.Group(name="autorol", description="Configurar autorol")
+
+    @autorol.command(name="add", description="Añadir rol al autorol")
     @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(role="Rol")
     @app_commands.checks.has_permissions(administrator=True)
-    async def goodbye_test(self, interaction):
-        await interaction.response.defer()
+    async def autorol_add(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        if role >= interaction.guild.me.top_role:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "welcome.role_too_high")))
         g = await self.bot.db.get_guild(interaction.guild.id)
-        msg = g.get("goodbye_message", "{user} ha abandonado el servidor.").format(
-            user=interaction.user.name, guild=interaction.guild.name
-        )
-        embed = PremiumEmbed(title="Despedida (test)", description=msg, color=config.COLORS["orange"])
-        await interaction.followup.send(embed=embed)
+        ar = g.get("auto_roles", []) or []
+        if role.id in ar:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "welcome.role_already_set")))
+        ar.append(role.id)
+        await self.bot.db.update_guild(interaction.guild.id, auto_roles=ar)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.autorol_added"), self.bot.t(lang, "welcome.autorol_added_desc", role=role.mention)))
 
-    autorole = app_commands.Group(name="autorole", description="Roles automáticos")
-
-    @autorole.command(name="add", description="Añadir autorol")
+    @autorol.command(name="remove", description="Quitar rol del autorol")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="Rol")
     @app_commands.checks.has_permissions(administrator=True)
-    async def autorole_add(self, interaction, role: discord.Role):
-        await interaction.response.defer()
-        await self.bot.db.add_automod_whitelist(interaction.guild.id, role.id, "autorole")
-        await interaction.followup.send(embed=success_embed("🎭 Autorol añadido", role.mention))
+    async def autorol_remove(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        g = await self.bot.db.get_guild(interaction.guild.id)
+        ar = g.get("auto_roles", []) or []
+        if role.id not in ar:
+            return await interaction.followup.send(embed=error_embed(self.bot.t(lang, "errors.title"), self.bot.t(lang, "welcome.role_not_in_autorol")))
+        ar.remove(role.id)
+        await self.bot.db.update_guild(interaction.guild.id, auto_roles=ar)
+        await interaction.followup.send(embed=success_embed(self.bot.t(lang, "welcome.autorol_removed"), self.bot.t(lang, "welcome.autorol_removed_desc", role=role.mention)))
 
-    @autorole.command(name="remove", description="Quitar autorol")
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(role="Rol")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def autorole_remove(self, interaction, role: discord.Role):
-        await interaction.response.defer()
-        await self.bot.db.remove_automod_whitelist(interaction.guild.id, role.id)
-        await interaction.followup.send(embed=success_embed("🎭 Autorol quitado", role.mention))
-
-    @autorole.command(name="list", description="Listar autoroles")
+    @autorol.command(name="list", description="Listar autoroles")
     @app_commands.default_permissions(administrator=True)
     @app_commands.checks.has_permissions(administrator=True)
-    async def autorole_list(self, interaction):
-        await interaction.response.defer()
-        roles = await self.bot.db.get_automod_whitelist(interaction.guild.id, "autorole")
-        if not roles:
-            return await interaction.followup.send(embed=info_embed("📋", "Sin autoroles."))
-        lines = [f"• {interaction.guild.get_role(rid).mention}" for rid in roles if interaction.guild.get_role(rid)]
-        embed = info_embed("🎭 Autoroles", "\n".join(lines))
+    async def autorol_list(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        lang = await self.bot.get_lang(interaction.guild.id)
+        g = await self.bot.db.get_guild(interaction.guild.id)
+        ar = g.get("auto_roles", []) or []
+        if not ar:
+            return await interaction.followup.send(embed=info_embed(self.bot.t(lang, "welcome.autorol_title"), self.bot.t(lang, "welcome.no_autorol")))
+        lines = []
+        for rid in ar:
+            role = interaction.guild.get_role(rid)
+            lines.append(role.mention if role else f"`{rid}`")
+        embed = GuildEmbed(title=self.bot.t(lang, "welcome.autorol_title"), color=config.EMBED_COLOR, guild=interaction.guild)
+        embed.add_field(name=self.bot.t(lang, "welcome.autorol_roles"), value="\n".join(lines), inline=False)
         await interaction.followup.send(embed=embed)
 
 

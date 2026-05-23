@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Teen Bot — Bot profesional de Discord
+Bot profesional de Discord
 Punto de entrada principal.
 """
 
@@ -11,12 +11,12 @@ from core.bot import Bot
 from utils.logger import setup_logger
 
 logger = setup_logger("Main")
-setup_logger("TeenBot")
+setup_logger("BotMain")
 
 
 async def main():
     logger.info("=" * 50)
-    logger.info("🤖 Iniciando Teen Bot...")
+    logger.info("🤖 Iniciando Bot...")
     logger.info("=" * 50)
 
     if not config.TOKEN:
