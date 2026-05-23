@@ -25,106 +25,86 @@
     <p>Programming isn't about what you know; it's about what you can figure out.</p>
 </div>
 
-<div class="module-grid-premium animate-fade-in-up delay-2">
-    <a href="/dashboard/{{ guild_id }}/overview" class="module-card-premium tilt-card card-accent tilt-card">
-        <div class="module-icon-box"><i class="bi bi-house-gear"></i></div>
-        <div class="module-info"><h5>General</h5><p>Resumen rapido del servidor, estadisticas y top XP</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+    <a href="/dashboard/{{ guild_id }}/overview" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-house-gear"></i></div>
+        <div><div class="stat-card-label">General</div><div class="stat-card-value" style="font-size:13px;">Resumen rapido</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/moderation" class="module-card-premium tilt-card card-blue tilt-card">
-        <div class="module-icon-box"><i class="bi bi-shield-check"></i></div>
-        <div class="module-info"><h5>Moderacion</h5><p>Roles staff, warns, canales de logs y cooldowns</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/moderation" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-shield-check"></i></div>
+        <div><div class="stat-card-label">Moderacion</div><div class="stat-card-value" style="font-size:13px;">Warns, roles, logs</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/automod" class="module-card-premium tilt-card card-cyan">
-        <div class="module-icon-box"><i class="bi bi-robot"></i></div>
-        <div class="module-info"><h5>Automod</h5><p>Anti-spam, anti-links, blacklist y castigos automaticos</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/automod" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon cyan"><i class="bi bi-robot"></i></div>
+        <div><div class="stat-card-label">Automod</div><div class="stat-card-value" style="font-size:13px;">Anti-spam, anti-link</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/antinuke" class="module-card-premium tilt-card card-red">
-        <div class="module-icon-box"><i class="bi bi-shield-exclamation"></i></div>
-        <div class="module-info"><h5>Anti-Nuke</h5><p>Proteccion contra bans masivos, eliminacion de canales y roles</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/antinuke" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon red"><i class="bi bi-shield-exclamation"></i></div>
+        <div><div class="stat-card-label">Anti-Nuke</div><div class="stat-card-value" style="font-size:13px;">Proteccion del server</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/tickets" class="module-card-premium tilt-card card-purple">
-        <div class="module-icon-box"><i class="bi bi-ticket-perforated"></i></div>
-        <div class="module-info"><h5>Tickets</h5><p>Sistema de soporte con categorias, transcripts y roles</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/tickets" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-ticket-perforated"></i></div>
+        <div><div class="stat-card-label">Tickets</div><div class="stat-card-value" style="font-size:13px;">Soporte y categorias</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/welcome" class="module-card-premium tilt-card card-green">
-        <div class="module-icon-box"><i class="bi bi-hand-wave"></i></div>
-        <div class="module-info"><h5>Bienvenidas</h5><p>Mensajes de bienvenida, despedida y roles automaticos</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/welcome" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon green"><i class="bi bi-hand-wave"></i></div>
+        <div><div class="stat-card-label">Bienvenidas</div><div class="stat-card-value" style="font-size:13px;">Welcome y goodbye</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/levels" class="module-card-premium tilt-card card-yellow">
-        <div class="module-icon-box"><i class="bi bi-graph-up-arrow"></i></div>
-        <div class="module-info"><h5>Niveles</h5><p>XP por mensaje, cooldown, roles por nivel y leaderboard</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/levels" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon yellow"><i class="bi bi-graph-up-arrow"></i></div>
+        <div><div class="stat-card-label">Niveles</div><div class="stat-card-value" style="font-size:13px;">XP, roles y leaderboard</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/economy" class="module-card-premium tilt-card card-gold">
-        <div class="module-icon-box"><i class="bi bi-coin"></i></div>
-        <div class="module-info"><h5>Economia</h5><p>Recompensas diarias, balance inicial y tienda del servidor</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/economy" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon yellow"><i class="bi bi-coin"></i></div>
+        <div><div class="stat-card-label">Economia</div><div class="stat-card-value" style="font-size:13px;">Balance y tienda</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/reputation" class="module-card-premium tilt-card card-pink">
-        <div class="module-icon-box"><i class="bi bi-star"></i></div>
-        <div class="module-info"><h5>Reputacion</h5><p>Cooldown, canales, staff-only y roles por reputacion</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/reputation" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon yellow"><i class="bi bi-star"></i></div>
+        <div><div class="stat-card-label">Reputacion</div><div class="stat-card-value" style="font-size:13px;">Cooldown y roles</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/logs" class="module-card-premium tilt-card card-slate">
-        <div class="module-icon-box"><i class="bi bi-journal-text"></i></div>
-        <div class="module-info"><h5>Logs</h5><p>Registro de eventos: mensajes, miembros, moderacion, voz</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/logs" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-journal-text"></i></div>
+        <div><div class="stat-card-label">Logs</div><div class="stat-card-value" style="font-size:13px;">Registro de eventos</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/reaction-roles" class="module-card-premium tilt-card card-indigo">
-        <div class="module-icon-box"><i class="bi bi-emoji-smile"></i></div>
-        <div class="module-info"><h5>Reaction Roles</h5><p>Roles por reaccion y botones personalizados</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/reaction-roles" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-emoji-smile"></i></div>
+        <div><div class="stat-card-label">Reaction Roles</div><div class="stat-card-value" style="font-size:13px;">Roles por botones</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/verification" class="module-card-premium tilt-card card-teal">
-        <div class="module-icon-box"><i class="bi bi-shield-lock"></i></div>
-        <div class="module-info"><h5>Verificacion</h5><p>Sistema de verificacion con captcha y roles</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/verification" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon cyan"><i class="bi bi-shield-lock"></i></div>
+        <div><div class="stat-card-label">Verificacion</div><div class="stat-card-value" style="font-size:13px;">Captcha y roles</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/giveaways" class="module-card-premium tilt-card card-orange">
-        <div class="module-icon-box"><i class="bi bi-gift"></i></div>
-        <div class="module-info"><h5>Giveaways</h5><p>Sorteos automaticos con temporizador y roles</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/giveaways" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon yellow"><i class="bi bi-gift"></i></div>
+        <div><div class="stat-card-label">Giveaways</div><div class="stat-card-value" style="font-size:13px;">Sorteos automaticos</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/suggestions" class="module-card-premium tilt-card card-lime">
-        <div class="module-icon-box"><i class="bi bi-lightbulb"></i></div>
-        <div class="module-info"><h5>Sugerencias</h5><p>Sistema de sugerencias con votos y aprobacion</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/suggestions" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon yellow"><i class="bi bi-lightbulb"></i></div>
+        <div><div class="stat-card-label">Sugerencias</div><div class="stat-card-value" style="font-size:13px;">Votacion y aprobacion</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/members" class="module-card-premium tilt-card card-blue">
-        <div class="module-icon-box"><i class="bi bi-people"></i></div>
-        <div class="module-info"><h5>Miembros</h5><p>Gestion de miembros, warns, reputacion y balances</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/members" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-people"></i></div>
+        <div><div class="stat-card-label">Miembros</div><div class="stat-card-value" style="font-size:13px;">Gestion de usuarios</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/commands" class="module-card-premium tilt-card card-cyan">
-        <div class="module-icon-box"><i class="bi bi-terminal"></i></div>
-        <div class="module-info"><h5>Comandos Personalizados</h5><p>Crea comandos de texto y embed desde el panel</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/commands" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon cyan"><i class="bi bi-terminal"></i></div>
+        <div><div class="stat-card-label">Comandos</div><div class="stat-card-value" style="font-size:13px;">Comandos personalizados</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/embed-builder" class="module-card-premium tilt-card card-pink">
-        <div class="module-icon-box"><i class="bi bi-file-earmark-richtext"></i></div>
-        <div class="module-info"><h5>Embed Builder</h5><p>Crea y envia embeds personalizados a tu servidor</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/embed-builder" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon cyan"><i class="bi bi-file-earmark-richtext"></i></div>
+        <div><div class="stat-card-label">Embed Builder</div><div class="stat-card-value" style="font-size:13px;">Crea y envia embeds</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/temp-voice" class="module-card-premium tilt-card card-teal">
-        <div class="module-icon-box"><i class="bi bi-mic"></i></div>
-        <div class="module-info"><h5>Canales de Voz Temp</h5><p>Canales de voz temporales con control de usuarios</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/temp-voice" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon cyan"><i class="bi bi-mic"></i></div>
+        <div><div class="stat-card-label">Temp Voice</div><div class="stat-card-value" style="font-size:13px;">Canales de voz temporales</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/audit" class="module-card-premium tilt-card card-slate">
-        <div class="module-icon-box"><i class="bi bi-clock-history"></i></div>
-        <div class="module-info"><h5>Auditoria</h5><p>Historial de cambios realizados desde el dashboard</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/audit" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-clock-history"></i></div>
+        <div><div class="stat-card-label">Auditoria</div><div class="stat-card-value" style="font-size:13px;">Historial de cambios</div></div>
     </a>
-    <a href="/dashboard/{{ guild_id }}/general" class="module-card-premium tilt-card card-white">
-        <div class="module-icon-box"><i class="bi bi-gear-wide-connected"></i></div>
-        <div class="module-info"><h5>Ajustes</h5><p>Prefijo, idioma, exportar e importar configuracion</p></div>
-        <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+    <a href="/dashboard/{{ guild_id }}/general" class="stat-card" style="text-decoration:none;cursor:pointer;">
+        <div class="stat-card-icon blue"><i class="bi bi-gear-wide-connected"></i></div>
+        <div><div class="stat-card-label">Ajustes</div><div class="stat-card-value" style="font-size:13px;">Prefijo, idioma, backups</div></div>
     </a>
 </div>
 

@@ -12,32 +12,12 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
-    <div class="ambient-bg"></div>
-    <div class="particles">
-        <div class="particle particle-1"></div>
-        <div class="particle particle-2"></div>
-        <div class="particle particle-3"></div>
-        <div class="particle particle-4"></div>
-        <div class="particle particle-5"></div>
-        <div class="particle particle-6"></div>
-        <div class="particle particle-7"></div>
-        <div class="particle particle-8"></div>
-        <div class="particle particle-9"></div>
-        <div class="particle particle-10"></div>
-        <div class="particle particle-11"></div>
-        <div class="particle particle-12"></div>
-        <div class="shooting-star"></div>
-        <div class="shooting-star"></div>
-        <div class="shooting-star"></div>
-    </div>
-    <div class="cursor-orb" id="cursorOrb"></div>
-
     <div class="layout">
         {% if user %}
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo"><i class="bi bi-robot"></i></div>
-                <span class="sidebar-title">ComunidadBot</span>
+                <span class="sidebar-title">Bot</span>
                 <button class="sidebar-close" onclick="toggleSidebar()"><i class="bi bi-x-lg"></i></button>
             </div>
 
@@ -114,7 +94,6 @@
         <main class="main-content">
             {% if user %}
             <nav class="navbar-custom">
-                <div class="navbar-glow"></div>
                 <div class="navbar-left">
                     <button class="navbar-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
                     {% if guild is defined and guild %}
@@ -140,7 +119,6 @@
                     </div>
                     <button class="navbar-btn" title="Notificaciones">
                         <i class="bi bi-bell"></i>
-                        <span class="dot"></span>
                     </button>
                     <button class="navbar-btn" title="Ayuda">
                         <i class="bi bi-question-lg"></i>
@@ -170,31 +148,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script>
-    document.addEventListener('mousemove', function(e) {
-        const orb = document.getElementById('cursorOrb');
-        if (orb) {
-            orb.style.transform = 'translate(' + (e.clientX - 150) + 'px, ' + (e.clientY - 150) + 'px)';
-        }
-    });
-    document.querySelectorAll('.tilt-card').forEach(function(card) {
-        card.addEventListener('mousemove', function(e) {
-            const rect = this.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            const rotateX = ((y - centerY) / centerY) * -6;
-            const rotateY = ((x - centerX) / centerX) * 6;
-            this.style.setProperty('--tilt-x', rotateY + 'deg');
-            this.style.setProperty('--tilt-y', rotateX + 'deg');
-        });
-        card.addEventListener('mouseleave', function() {
-            this.style.setProperty('--tilt-x', '0deg');
-            this.style.setProperty('--tilt-y', '0deg');
-        });
-    });
-    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

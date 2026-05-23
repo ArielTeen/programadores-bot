@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Servidores{% endblock %}
 {% block content %}
-<div class="page-header animate-fade-in-up">
+<div class="page-header">
     <h1>Servidores</h1>
-    <p>Selecciona un servidor para gestionar su configuracion.</p>
+    <p style="color:var(--text-muted);font-size:13px;">Selecciona un servidor para gestionar su configuracion</p>
 </div>
 
-<div class="module-grid-premium animate-fade-in-up delay-1">
+<div class="servers-grid">
     {% for g in guilds %}
-    <a href="/dashboard/{{ g.id }}" style="text-decoration: none; color: inherit;">
-        <div class="module-card-premium" style="gap: 16px; padding: 18px 20px;">
+    <a href="/dashboard/{{ g.id }}" style="text-decoration:none;color:inherit;">
+        <div class="server-card">
             <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png"
-                 style="width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
+                 class="server-card-icon"
                  onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-            <div class="module-info">
-                <h5 style="font-size: 1.05rem;">{{ g.name[:28] }}</h5>
-                <p style="margin-top: 2px;"><i class="bi bi-people"></i> {{ g.member_count }} miembros</p>
-                <div style="margin-top: 4px;">
+            <div class="server-card-info">
+                <div class="server-card-name">{{ g.name[:28] }}</div>
+                <div class="server-card-detail">
+                    <span><i class="bi bi-people"></i> {{ g.member_count }} miembros</span>
                     <span class="{{ g.badge_class }}"><i class="bi bi-shield-check"></i> {{ g.permission_label }}</span>
                 </div>
             </div>
-            <div class="module-arrow"><i class="bi bi-chevron-right"></i></div>
+            <i class="bi bi-chevron-right" style="color:var(--text-muted);"></i>
         </div>
     </a>
     {% endfor %}

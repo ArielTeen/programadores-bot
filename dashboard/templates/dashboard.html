@@ -1,52 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="page-header animate-fade-in-up">
+<div class="page-header">
     <h1>Bienvenido, {{ user.username }}</h1>
-    <p>Programming isn't about what you know; it's about what you can figure out.</p>
 </div>
 
-<div class="row animate-fade-in-up delay-1" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px;">
-    <div class="stat-card tilt-card">
+<div class="stats-grid">
+    <div class="stat-card">
         <div class="stat-card-icon blue"><i class="bi bi-server"></i></div>
-        <div class="stat-card-value">{{ stats.total_guilds }}</div>
-        <div class="stat-card-label">Servidores totales</div>
+        <div>
+            <div class="stat-card-value">{{ stats.total_guilds }}</div>
+            <div class="stat-card-label">Servidores totales</div>
+        </div>
     </div>
-    <div class="stat-card tilt-card">
+    <div class="stat-card">
         <div class="stat-card-icon green"><i class="bi bi-shield-check"></i></div>
-        <div class="stat-card-value">{{ stats.admin_guilds }}</div>
-        <div class="stat-card-label">Admin / Propietario</div>
+        <div>
+            <div class="stat-card-value">{{ stats.admin_guilds }}</div>
+            <div class="stat-card-label">Admin / Propietario</div>
+        </div>
     </div>
-    <div class="stat-card tilt-card">
-        <div class="stat-card-icon purple"><i class="bi bi-person-badge"></i></div>
-        <div class="stat-card-value">{{ stats.staff_guilds }}</div>
-        <div class="stat-card-label">Staff (solo lectura)</div>
+    <div class="stat-card">
+        <div class="stat-card-icon blue"><i class="bi bi-person-badge"></i></div>
+        <div>
+            <div class="stat-card-value">{{ stats.staff_guilds }}</div>
+            <div class="stat-card-label">Staff (solo lectura)</div>
+        </div>
     </div>
-    <div class="stat-card tilt-card">
+    <div class="stat-card">
         <div class="stat-card-icon yellow"><i class="bi bi-people"></i></div>
-        <div class="stat-card-value">{{ guilds|length - stats.admin_guilds - stats.staff_guilds }}</div>
-        <div class="stat-card-label">Miembro (sin acceso)</div>
+        <div>
+            <div class="stat-card-value">{{ guilds|length - stats.admin_guilds - stats.staff_guilds }}</div>
+            <div class="stat-card-label">Miembro (sin acceso)</div>
+        </div>
     </div>
 </div>
 
-<div class="glass-card p-4 animate-fade-in-up delay-2">
-    <div class="card-header-custom">
-        <h5><i class="bi bi-server" style="color: var(--accent);"></i> Tus servidores</h5>
-        <span class="badge-premium blue">{{ guilds|length }} total</span>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+<div class="module-section">
+    <h3><i class="bi bi-server"></i> Tus servidores</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
         {% for g in guilds %}
-        <a href="/dashboard/{{ g.id }}" style="text-decoration: none; color: inherit;">
-            <div class="server-mini-card">
-                <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                <div class="server-mini-info">
-                    <span class="server-mini-name">{{ g.name[:24] }}</span>
-                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-                        <span class="server-mini-members"><i class="bi bi-people"></i> {{ g.member_count }}</span>
+        <a href="/dashboard/{{ g.id }}" style="text-decoration:none;color:inherit;">
+            <div class="stat-card" style="padding:14px 16px;">
+                <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" style="width:36px;height:36px;border-radius:50%;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ g.name[:24] }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px;margin-top:2px;">
+                        <span><i class="bi bi-people"></i> {{ g.member_count }}</span>
                         <span class="{{ g.badge_class }}">{{ g.permission_label[:8] }}</span>
                     </div>
                 </div>
-                <span class="server-mini-arrow"><i class="bi bi-chevron-right"></i></span>
+                <i class="bi bi-chevron-right" style="color:var(--text-muted);"></i>
             </div>
         </a>
         {% endfor %}
